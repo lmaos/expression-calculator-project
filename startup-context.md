@@ -6,7 +6,7 @@
 
 ## 当前项目快照
 
-- 工作目录：`D:\zxy\ws\ai\copilot\chat-v1`
+- 工作目录：`D:\zxy\ws\ai\copilot\coding-v1`
 - 目标项目：`D:\zxy\ws\ai\copilot\coding-v1\expression-calculator`
 - 分支：`feature/comparable-compare`
 - 当前 HEAD：`1beebf184431f6950ab0bdc7fdd38884948f6d69`
