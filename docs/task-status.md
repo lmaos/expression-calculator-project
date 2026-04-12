@@ -62,6 +62,6 @@
 
 建议下次启动时先读：
 
-1. `D:\zxy\ws\ai\copilot\chat-v1\startup-context.md`
-2. `D:\zxy\ws\ai\copilot\chat-v1\docs\task-status.md`
-3. `D:\zxy\ws\ai\copilot\chat-v1\docs\usage-guide.md`
+1. `D:\zxy\ws\ai\copilot\coding-v1\startup-context.md`
+2. `D:\zxy\ws\ai\copilot\coding-v1\docs\task-status.md`
+3. `D:\zxy\ws\ai\copilot\coding-v1\docs\usage-guide.md`
