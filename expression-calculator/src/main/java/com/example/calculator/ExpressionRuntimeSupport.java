@@ -75,6 +75,16 @@ final class ExpressionRuntimeSupport {
             throw new IllegalArgumentException("括号不匹配");
         }
 
+        /*
+         * 这里要去掉的是“完整包裹整句”的外层括号：
+         *
+         * (((expr)))  -> 可以连续剥三层
+         * (a) + (b)   -> 不能剥，因为最外层并没有完整包住整句
+         *
+         * matchingCloseIndexes[i] == end - i
+         * 这个条件可以理解成：
+         * 第 i 个最左侧 '('，正好和第 i 个最右侧 ')' 配对。
+         */
         int removableLayers = 0;
         while (removableLayers < openCount && matchingCloseIndexes[removableLayers] == end - removableLayers) {
             removableLayers++;
@@ -166,6 +176,18 @@ final class ExpressionRuntimeSupport {
         if (raw == null) {
             return false;
         }
+        /*
+         * 真值规则按题目要求固定：
+         *
+         * null            -> false
+         * boolean         -> 自身
+         * file            -> exists()
+         * collection/map  -> 非空为 true
+         * array           -> 长度 > 0
+         *
+         * 数字 / 字符串不允许直接当 compareCalculation 的最终结果，
+         * 否则像 "a + b" 这种输入会悄悄被解释成 true/false，破坏题目约束。
+         */
         if (raw instanceof Boolean bool) {
             return bool;
         }
@@ -282,6 +304,15 @@ final class ExpressionRuntimeSupport {
         if (methods == null) {
             return null;
         }
+        /*
+         * 这里不是“找到一个能用的方法”就结束，而是要挑最合适的那个：
+         *
+         * score = 0  精确类型命中
+         * score = 1  父类型/接口命中
+         * score < 0  不匹配
+         *
+         * 总分越小越优先，避免在重载方法里选错目标。
+         */
         Method bestMatch = null;
         int bestScore = Integer.MAX_VALUE;
         for (Method method : methods) {
@@ -373,6 +404,7 @@ final class ExpressionRuntimeSupport {
     static String formatForCalculation(RuntimeValue value) {
         Object raw = value.raw();
         if (raw == null) {
+            // 单独变量值为 null 时，题目要求按“假值”语义返回 false。
             return value.origin() == ValueOrigin.VARIABLE ? "false" : "null";
         }
         if (raw instanceof BigDecimal bigDecimal) {
@@ -424,6 +456,13 @@ final class ExpressionRuntimeSupport {
         }
 
         Object toInvocationArgument() {
+            /*
+             * 题目的关键约束：
+             * 1. 直接字面量参数保留原始类型，例如 55 -> int
+             * 2. 变量表里的数字统一按 BigDecimal 参与方法匹配
+             *
+             * 因此只有 VARIABLE + Number 时才做 BigDecimal 归一化。
+             */
             if (origin == ValueOrigin.VARIABLE && raw instanceof Number && !(raw instanceof BigDecimal)) {
                 return new BigDecimal(raw.toString());
             }

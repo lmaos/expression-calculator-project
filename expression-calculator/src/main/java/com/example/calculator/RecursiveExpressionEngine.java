@@ -49,6 +49,20 @@ final class RecursiveExpressionEngine {
             return parseOr();
         }
 
+        /**
+         * 递归版入口直接按“最低优先级 -> 最高优先级”逐层下钻：
+         * <pre>
+         * or
+         * └── and
+         *     └── comparison
+         *         └── additive
+         *             └── multiplicative
+         *                 └── unary
+         *                     └── primary
+         * </pre>
+         *
+         * <p>好处是每一层只关注自己那一级运算符，代码和语法几乎一一对应。
+         */
         private Node parseOr() {
             Node node = parseAnd();
             while (true) {
@@ -173,6 +187,7 @@ final class RecursiveExpressionEngine {
                 if (!match('(')) {
                     throw new IllegalArgumentException("非法字符: .");
                 }
+                // 方法调用仍然复用“表达式参数”规则，因此参数本身也可以继续嵌套。
                 List<Node> arguments = new ArrayList<>();
                 skipWhitespace();
                 if (!match(')')) {
@@ -214,6 +229,8 @@ final class RecursiveExpressionEngine {
             if (".".equals(numberText)) {
                 throw new IllegalArgumentException("数字格式错误");
             }
+            // 这里支持题目要求的数字后缀：
+            // 123L / 1.5f / 1.5d / 1.5m
             if (!isEnd()) {
                 char suffix = currentChar();
                 switch (suffix) {
@@ -412,6 +429,7 @@ final class RecursiveExpressionEngine {
 
         @Override
         public RuntimeValue evaluate() {
+            // 逻辑运算必须保留短路语义，不能先把左右两边都算完。
             boolean leftValue = ExpressionRuntimeSupport.toStandaloneBoolean(left.evaluate());
             if ("&&".equals(operator)) {
                 if (!leftValue) {
