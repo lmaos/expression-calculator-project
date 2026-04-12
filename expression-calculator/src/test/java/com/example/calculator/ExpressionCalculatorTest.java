@@ -73,6 +73,22 @@ class ExpressionCalculatorTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("calculators")
+    @DisplayName("应支持零值和前导零")
+    void shouldHandleZeroAndLeadingZero(String name, ExpressionCalculator calculator) {
+        assertEquals("0", calculator.calculation("000 + a - 1", variables));
+        assertEquals("0", calculator.calculation("a - 1", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    @DisplayName("应拒绝非法数字格式")
+    void shouldRejectInvalidNumberFormat(String name, ExpressionCalculator calculator) {
+        assertThrows(IllegalArgumentException.class, () -> calculator.calculation("1..2 + a", variables));
+        assertThrows(IllegalArgumentException.class, () -> calculator.calculation(".", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
     @DisplayName("应支持大于比较")
     void shouldCompareGreaterThanExpression(String name, ExpressionCalculator calculator) {
         assertTrue(calculator.compareCalculation("a + b * (c + 2) > 10", variables));
@@ -153,6 +169,14 @@ class ExpressionCalculatorTest {
     @DisplayName("空表达式应报错")
     void shouldThrowWhenExpressionIsBlank(String name, ExpressionCalculator calculator) {
         assertThrows(IllegalArgumentException.class, () -> calculator.calculation("   ", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    @DisplayName("应拒绝非法字符")
+    void shouldRejectIllegalCharacters(String name, ExpressionCalculator calculator) {
+        assertThrows(IllegalArgumentException.class, () -> calculator.calculation("a + #", variables));
+        assertThrows(IllegalArgumentException.class, () -> calculator.compareCalculation("a > #", variables));
     }
 
     @ParameterizedTest(name = "{0}")

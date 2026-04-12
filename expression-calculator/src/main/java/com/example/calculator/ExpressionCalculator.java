@@ -7,8 +7,8 @@ import java.util.Map;
  *
  * <p>当前项目提供两种实现：
  * <pre>
- * 1. RecursiveExpressionCalculator  // 保留原来的递归下降算法
- * 2. IterativeExpressionCalculator  // 新增的非递归算法，支持超深嵌套
+ * 1. RecursiveExpressionCalculator  // 递归下降算法
+ * 2. IterativeExpressionCalculator  // 非递归算法，支持超深嵌套
  * </pre>
  */
 public interface ExpressionCalculator {

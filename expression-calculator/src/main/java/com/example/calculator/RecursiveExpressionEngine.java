@@ -1,0 +1,450 @@
+package com.example.calculator;
+
+import com.example.calculator.ExpressionRuntimeSupport.RuntimeValue;
+import java.math.BigDecimal;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+
+final class RecursiveExpressionEngine {
+
+    private RecursiveExpressionEngine() {
+    }
+
+    static String evaluateForCalculation(String text, Map<String, Object> variables) {
+        RuntimeValue value = evaluateValue(text, variables);
+        return ExpressionRuntimeSupport.formatForCalculation(value);
+    }
+
+    static boolean evaluateForComparison(String text, Map<String, Object> variables) {
+        RuntimeValue value = evaluateValue(text, variables);
+        return ExpressionRuntimeSupport.toStandaloneBoolean(value);
+    }
+
+    static RuntimeValue evaluateValue(String text, Map<String, Object> variables) {
+        Parser parser = new Parser(ExpressionRuntimeSupport.requireText(text), variables);
+        Node node = parser.parseExpression();
+        parser.skipWhitespace();
+        if (!parser.isEnd()) {
+            throw new IllegalArgumentException("非法字符: " + parser.currentChar());
+        }
+        return node.evaluate();
+    }
+
+    private interface Node {
+        RuntimeValue evaluate();
+    }
+
+    private static final class Parser {
+        private final String text;
+        private final Map<String, Object> variables;
+        private int position;
+
+        private Parser(String text, Map<String, Object> variables) {
+            this.text = text;
+            this.variables = variables;
+        }
+
+        private Node parseExpression() {
+            return parseOr();
+        }
+
+        private Node parseOr() {
+            Node node = parseAnd();
+            while (true) {
+                skipWhitespace();
+                if (!match("||")) {
+                    return node;
+                }
+                Node right = parseAnd();
+                node = new LogicalNode(node, "||", right);
+            }
+        }
+
+        private Node parseAnd() {
+            Node node = parseComparison();
+            while (true) {
+                skipWhitespace();
+                if (!match("&&")) {
+                    return node;
+                }
+                Node right = parseComparison();
+                node = new LogicalNode(node, "&&", right);
+            }
+        }
+
+        private Node parseComparison() {
+            Node left = parseAdditive();
+            skipWhitespace();
+            String operator = readComparisonOperator();
+            if (operator == null) {
+                return left;
+            }
+            Node right = parseAdditive();
+            return new ComparisonNode(left, operator, right);
+        }
+
+        private Node parseAdditive() {
+            Node node = parseMultiplicative();
+            while (true) {
+                skipWhitespace();
+                if (match('+')) {
+                    Node right = parseMultiplicative();
+                    node = new ArithmeticNode(node, '+', right);
+                } else if (match('-')) {
+                    Node right = parseMultiplicative();
+                    node = new ArithmeticNode(node, '-', right);
+                } else {
+                    return node;
+                }
+            }
+        }
+
+        private Node parseMultiplicative() {
+            Node node = parseUnary();
+            while (true) {
+                skipWhitespace();
+                if (match('*')) {
+                    Node right = parseUnary();
+                    node = new ArithmeticNode(node, '*', right);
+                } else if (match('/')) {
+                    Node right = parseUnary();
+                    node = new ArithmeticNode(node, '/', right);
+                } else {
+                    return node;
+                }
+            }
+        }
+
+        private Node parseUnary() {
+            skipWhitespace();
+            if (match('+')) {
+                return new UnaryNode('+', parseUnary());
+            }
+            if (match('-')) {
+                return new UnaryNode('-', parseUnary());
+            }
+            return parsePrimary();
+        }
+
+        private Node parsePrimary() {
+            skipWhitespace();
+            if (isEnd()) {
+                throw new IllegalArgumentException("表达式格式错误");
+            }
+
+            char current = currentChar();
+            Node node;
+            if (current == '(') {
+                position++;
+                Node inner = parseExpression();
+                skipWhitespace();
+                if (!match(')')) {
+                    throw new IllegalArgumentException("括号不匹配");
+                }
+                node = inner;
+            } else if (Character.isDigit(current) || current == '.') {
+                node = new LiteralNode(parseNumberLiteral());
+            } else if (Character.isLetter(current) || current == '_') {
+                String identifier = parseIdentifier();
+                if ("true".equals(identifier)) {
+                    node = new LiteralNode(Boolean.TRUE);
+                } else if ("false".equals(identifier)) {
+                    node = new LiteralNode(Boolean.FALSE);
+                } else if ("null".equals(identifier)) {
+                    node = new LiteralNode(null);
+                } else {
+                    node = new VariableNode(identifier, variables);
+                }
+            } else {
+                throw new IllegalArgumentException("非法字符: " + current);
+            }
+            return parsePostfix(node);
+        }
+
+        private Node parsePostfix(Node node) {
+            while (true) {
+                skipWhitespace();
+                if (!match('.')) {
+                    return node;
+                }
+                String methodName = parseIdentifier();
+                skipWhitespace();
+                if (!match('(')) {
+                    throw new IllegalArgumentException("非法字符: .");
+                }
+                List<Node> arguments = new ArrayList<>();
+                skipWhitespace();
+                if (!match(')')) {
+                    do {
+                        arguments.add(parseExpression());
+                        skipWhitespace();
+                    } while (match(','));
+                    if (!match(')')) {
+                        throw new IllegalArgumentException("括号不匹配");
+                    }
+                }
+                node = new MethodCallNode(node, methodName, arguments);
+            }
+        }
+
+        private Object parseNumberLiteral() {
+            int start = position;
+            boolean hasDigit = false;
+            boolean hasDot = false;
+            while (!isEnd()) {
+                char current = currentChar();
+                if (Character.isDigit(current)) {
+                    hasDigit = true;
+                    position++;
+                } else if (current == '.') {
+                    if (hasDot) {
+                        throw new IllegalArgumentException("数字格式错误");
+                    }
+                    hasDot = true;
+                    position++;
+                } else {
+                    break;
+                }
+            }
+            if (!hasDigit) {
+                throw new IllegalArgumentException("数字格式错误");
+            }
+            String numberText = text.substring(start, position);
+            if (".".equals(numberText)) {
+                throw new IllegalArgumentException("数字格式错误");
+            }
+            if (!isEnd()) {
+                char suffix = currentChar();
+                switch (suffix) {
+                    case 'L':
+                    case 'l':
+                        position++;
+                        return Long.valueOf(numberText);
+                    case 'F':
+                    case 'f':
+                        position++;
+                        return Float.valueOf(numberText);
+                    case 'D':
+                    case 'd':
+                        position++;
+                        return Double.valueOf(numberText);
+                    case 'M':
+                    case 'm':
+                        position++;
+                        return new BigDecimal(numberText);
+                    default:
+                        break;
+                }
+            }
+            if (hasDot) {
+                return Double.valueOf(numberText);
+            }
+            try {
+                return Integer.valueOf(numberText);
+            } catch (NumberFormatException exception) {
+                return Long.valueOf(numberText);
+            }
+        }
+
+        private String readComparisonOperator() {
+            String[] operators = {">=", "<=", "==", "!=", ">", "<"};
+            for (String operator : operators) {
+                if (match(operator)) {
+                    return operator;
+                }
+            }
+            return null;
+        }
+
+        private String parseIdentifier() {
+            skipWhitespace();
+            if (isEnd()) {
+                throw new IllegalArgumentException("表达式格式错误");
+            }
+            char current = currentChar();
+            if (!Character.isLetter(current) && current != '_') {
+                throw new IllegalArgumentException("非法字符: " + current);
+            }
+            int start = position;
+            position++;
+            while (!isEnd()) {
+                current = currentChar();
+                if (Character.isLetterOrDigit(current) || current == '_') {
+                    position++;
+                } else {
+                    break;
+                }
+            }
+            return text.substring(start, position);
+        }
+
+        private boolean match(String expected) {
+            if (text.startsWith(expected, position)) {
+                position += expected.length();
+                return true;
+            }
+            return false;
+        }
+
+        private boolean match(char expected) {
+            if (!isEnd() && currentChar() == expected) {
+                position++;
+                return true;
+            }
+            return false;
+        }
+
+        private void skipWhitespace() {
+            while (!isEnd() && Character.isWhitespace(currentChar())) {
+                position++;
+            }
+        }
+
+        private boolean isEnd() {
+            return position >= text.length();
+        }
+
+        private char currentChar() {
+            return text.charAt(position);
+        }
+    }
+
+    private static final class LiteralNode implements Node {
+        private final Object value;
+
+        private LiteralNode(Object value) {
+            this.value = value;
+        }
+
+        @Override
+        public RuntimeValue evaluate() {
+            return RuntimeValue.literal(value);
+        }
+    }
+
+    private static final class VariableNode implements Node {
+        private final String name;
+        private final Map<String, Object> variables;
+
+        private VariableNode(String name, Map<String, Object> variables) {
+            this.name = name;
+            this.variables = variables;
+        }
+
+        @Override
+        public RuntimeValue evaluate() {
+            if (variables == null || !variables.containsKey(name)) {
+                throw new IllegalArgumentException("变量不存在: " + name);
+            }
+            return RuntimeValue.variable(variables.get(name));
+        }
+    }
+
+    private static final class UnaryNode implements Node {
+        private final char operator;
+        private final Node operand;
+
+        private UnaryNode(char operator, Node operand) {
+            this.operator = operator;
+            this.operand = operand;
+        }
+
+        @Override
+        public RuntimeValue evaluate() {
+            RuntimeValue value = operand.evaluate();
+            return operator == '-' ? ExpressionRuntimeSupport.negate(value) : ExpressionRuntimeSupport.positive(value);
+        }
+    }
+
+    private static final class ArithmeticNode implements Node {
+        private final Node left;
+        private final char operator;
+        private final Node right;
+
+        private ArithmeticNode(Node left, char operator, Node right) {
+            this.left = left;
+            this.operator = operator;
+            this.right = right;
+        }
+
+        @Override
+        public RuntimeValue evaluate() {
+            RuntimeValue leftValue = left.evaluate();
+            RuntimeValue rightValue = right.evaluate();
+            return switch (operator) {
+                case '+' -> ExpressionRuntimeSupport.add(leftValue, rightValue);
+                case '-' -> ExpressionRuntimeSupport.subtract(leftValue, rightValue);
+                case '*' -> ExpressionRuntimeSupport.multiply(leftValue, rightValue);
+                case '/' -> ExpressionRuntimeSupport.divide(leftValue, rightValue);
+                default -> throw new IllegalArgumentException("非法字符: " + operator);
+            };
+        }
+    }
+
+    private static final class ComparisonNode implements Node {
+        private final Node left;
+        private final String operator;
+        private final Node right;
+
+        private ComparisonNode(Node left, String operator, Node right) {
+            this.left = left;
+            this.operator = operator;
+            this.right = right;
+        }
+
+        @Override
+        public RuntimeValue evaluate() {
+            return RuntimeValue.computed(ExpressionRuntimeSupport.compare(left.evaluate(), operator, right.evaluate()));
+        }
+    }
+
+    private static final class LogicalNode implements Node {
+        private final Node left;
+        private final String operator;
+        private final Node right;
+
+        private LogicalNode(Node left, String operator, Node right) {
+            this.left = left;
+            this.operator = operator;
+            this.right = right;
+        }
+
+        @Override
+        public RuntimeValue evaluate() {
+            boolean leftValue = ExpressionRuntimeSupport.toStandaloneBoolean(left.evaluate());
+            if ("&&".equals(operator)) {
+                if (!leftValue) {
+                    return RuntimeValue.computed(false);
+                }
+                return RuntimeValue.computed(ExpressionRuntimeSupport.toStandaloneBoolean(right.evaluate()));
+            }
+            if (leftValue) {
+                return RuntimeValue.computed(true);
+            }
+            return RuntimeValue.computed(ExpressionRuntimeSupport.toStandaloneBoolean(right.evaluate()));
+        }
+    }
+
+    private static final class MethodCallNode implements Node {
+        private final Node receiver;
+        private final String methodName;
+        private final List<Node> arguments;
+
+        private MethodCallNode(Node receiver, String methodName, List<Node> arguments) {
+            this.receiver = receiver;
+            this.methodName = methodName;
+            this.arguments = arguments;
+        }
+
+        @Override
+        public RuntimeValue evaluate() {
+            RuntimeValue receiverValue = receiver.evaluate();
+            List<RuntimeValue> evaluatedArguments = new ArrayList<>(arguments.size());
+            for (Node argument : arguments) {
+                evaluatedArguments.add(argument.evaluate());
+            }
+            return ExpressionRuntimeSupport.invokeMethod(receiverValue, methodName, evaluatedArguments);
+        }
+    }
+}
