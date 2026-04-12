@@ -16,13 +16,30 @@ import java.util.Map;
  */
 public class RecursiveExpressionCalculator implements ExpressionCalculator {
 
+    private final int maxDepth;
+
+    public RecursiveExpressionCalculator() {
+        this(-1);
+    }
+
+    public RecursiveExpressionCalculator(int maxDepth) {
+        if (maxDepth < -1) {
+            throw new IllegalArgumentException("层级限制不能小于-1");
+        }
+        this.maxDepth = maxDepth;
+    }
+
     @Override
     public String calculation(String text, Map<String, Object> varMap) {
-        return RecursiveExpressionEngine.evaluateForCalculation(text, varMap);
+        String required = ExpressionRuntimeSupport.requireText(text);
+        ExpressionRuntimeSupport.ensureWithinDepthLimit(required, maxDepth);
+        return RecursiveExpressionEngine.evaluateForCalculation(required, varMap);
     }
 
     @Override
     public boolean compareCalculation(String text, Map<String, Object> varMap) {
-        return RecursiveExpressionEngine.evaluateForComparison(text, varMap);
+        String required = ExpressionRuntimeSupport.requireText(text);
+        ExpressionRuntimeSupport.ensureWithinDepthLimit(required, maxDepth);
+        return RecursiveExpressionEngine.evaluateForComparison(required, varMap);
     }
 }

@@ -25,6 +25,30 @@ final class ExpressionRuntimeSupport {
         return text;
     }
 
+    static void ensureWithinDepthLimit(String text, int maxDepth) {
+        if (maxDepth < 0) {
+            return;
+        }
+        int depth = 0;
+        for (int index = 0; index < text.length(); index++) {
+            char current = text.charAt(index);
+            if (current == '(') {
+                depth++;
+                if (depth > maxDepth) {
+                    throw new IllegalArgumentException("表达式层级超过限制: " + maxDepth);
+                }
+            } else if (current == ')') {
+                depth--;
+                if (depth < 0) {
+                    throw new IllegalArgumentException("括号不匹配");
+                }
+            }
+        }
+        if (depth != 0) {
+            throw new IllegalArgumentException("括号不匹配");
+        }
+    }
+
     static String stripRedundantOuterParentheses(String text) {
         String required = requireText(text);
         int start = 0;
