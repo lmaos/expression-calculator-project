@@ -38,10 +38,25 @@ class ExpressionCalculatorTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("calculators")
+    @DisplayName("单独输出变量值")
+    void testSingleVariableCalculation(String name, ExpressionCalculator calculator) {
+        assertEquals("1", calculator.calculation("a", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    @DisplayName("单独输出纯值")
+    void testSingleValueCalculation(String name, ExpressionCalculator calculator) {
+        assertEquals("111", calculator.calculation("(111)", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
     @DisplayName("应支持变量和括号计算")
     void shouldCalculateExpressionWithVariablesAndParentheses(String name, ExpressionCalculator calculator) {
         assertEquals("11", calculator.calculation("a + b * (c + 2)", variables));
     }
+
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("calculators")
