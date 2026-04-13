@@ -12,7 +12,7 @@ The `expression-calculator` library provides a unified interface for evaluating 
 - Defensive against malicious or overly deep expressions
 
 ## 2. Environment Requirements
-- Java 17 or higher
+- Java 1.8 or higher
 - Maven 3.8 or higher
 
 ## 3. Quick Start

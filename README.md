@@ -1,6 +1,6 @@
 # expression-calculator
 
-`expression-calculator` 是一个面向 Java 17 的表达式计算库，支持算术、比较、逻辑、位运算、变量、字面量和方法调用。
+`expression-calculator` 是一个面向 Java 的表达式计算库，支持算术、比较、逻辑、位运算、变量、字面量和方法调用。
 
 ## 能力
 
