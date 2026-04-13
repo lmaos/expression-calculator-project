@@ -7,8 +7,6 @@ import java.util.List;
 
 final class ExpressionTextSupport {
 
-    static final String[] COMPARISON_OPERATORS = {">=", "<=", "==", "!=", ">", "<"};
-
     private ExpressionTextSupport() {
     }
 
@@ -151,15 +149,6 @@ final class ExpressionTextSupport {
             throw new IllegalArgumentException("字符字面量格式错误");
         }
         return new ParsedToken<>(value, index + 1);
-    }
-
-    static String readComparisonOperator(String text, int start) {
-        for (String operator : COMPARISON_OPERATORS) {
-            if (text.startsWith(operator, start)) {
-                return operator;
-            }
-        }
-        return null;
     }
 
     static int skipQuotedLiteral(String text, int start) {

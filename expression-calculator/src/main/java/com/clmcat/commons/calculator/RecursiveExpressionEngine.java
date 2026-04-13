@@ -1,6 +1,5 @@
 package com.clmcat.commons.calculator;
 
-import com.clmcat.commons.calculator.ExpressionRuntimeSupport.RuntimeValue;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +36,7 @@ final class RecursiveExpressionEngine {
     private static final class Parser {
         private final String text;
         private final Map<String, Object> variables;
+        private final OperatorRegistry operatorRegistry = OperatorRegistry.getInstance();
         private int position;
 
         private Parser(String text, Map<String, Object> variables) {
@@ -49,18 +49,15 @@ final class RecursiveExpressionEngine {
         }
 
         /**
-         * 递归版入口直接按“最低优先级 -> 最高优先级”逐层下钻：
+         * 递归版仍然保留逻辑层的直观结构：
          * <pre>
          * or
          * └── and
-         *     └── comparison
-         *         └── additive
-         *             └── multiplicative
-         *                 └── unary
-         *                     └── primary
+         *     └── value-expression
          * </pre>
          *
-         * <p>好处是每一层只关注自己那一级运算符，代码和语法几乎一一对应。
+         * <p>但 value-expression 不再硬编码 additive / multiplicative / comparison，
+         * 而是交给通用优先级解析器按注册表驱动。
          */
         private Node parseOr() {
             Node node = parseAnd();
@@ -75,67 +72,46 @@ final class RecursiveExpressionEngine {
         }
 
         private Node parseAnd() {
-            Node node = parseComparison();
+            Node node = parseValueExpression(0);
             while (true) {
                 skipWhitespace();
                 if (!match("&&")) {
                     return node;
                 }
-                Node right = parseComparison();
+                Node right = parseValueExpression(0);
                 node = new LogicalNode(node, "&&", right);
             }
         }
 
-        private Node parseComparison() {
-            Node left = parseAdditive();
-            skipWhitespace();
-            String operator = readComparisonOperator();
-            if (operator == null) {
-                return left;
-            }
-            Node right = parseAdditive();
-            return new ComparisonNode(left, operator, right);
-        }
-
-        private Node parseAdditive() {
-            Node node = parseMultiplicative();
+        /**
+         * 通用优先级解析器（Pratt 风格）：
+         * 1. 前缀位置读取一元运算符或 primary
+         * 2. 中缀位置按“当前最小优先级”继续吃掉可接受的二元运算符
+         *
+         * <p>这样新增 `%`、`^` 等运算符时，只需要注册，不需要再补新的 parseXxx 层。
+         */
+        private Node parseValueExpression(int minimumPrecedence) {
+            Node left = parsePrefixExpression();
             while (true) {
                 skipWhitespace();
-                if (match('+')) {
-                    Node right = parseMultiplicative();
-                    node = new ArithmeticNode(node, '+', right);
-                } else if (match('-')) {
-                    Node right = parseMultiplicative();
-                    node = new ArithmeticNode(node, '-', right);
-                } else {
-                    return node;
+                Operator operator = operatorRegistry.matchBinaryOperator(text, position);
+                if (operator == null || operator.precedence() < minimumPrecedence) {
+                    return left;
                 }
+                position += operator.symbol().length();
+                int nextMinimum = operator.isRightAssociative() ? operator.precedence() : operator.precedence() + 1;
+                Node right = parseValueExpression(nextMinimum);
+                left = new BinaryOperatorNode(left, operator, right);
             }
         }
 
-        private Node parseMultiplicative() {
-            Node node = parseUnary();
-            while (true) {
-                skipWhitespace();
-                if (match('*')) {
-                    Node right = parseUnary();
-                    node = new ArithmeticNode(node, '*', right);
-                } else if (match('/')) {
-                    Node right = parseUnary();
-                    node = new ArithmeticNode(node, '/', right);
-                } else {
-                    return node;
-                }
-            }
-        }
-
-        private Node parseUnary() {
+        private Node parsePrefixExpression() {
             skipWhitespace();
-            if (match('+')) {
-                return new UnaryNode('+', parseUnary());
-            }
-            if (match('-')) {
-                return new UnaryNode('-', parseUnary());
+            Operator operator = operatorRegistry.matchUnaryOperator(text, position);
+            if (operator != null) {
+                position += operator.symbol().length();
+                Node operand = parseValueExpression(operator.precedence());
+                return new UnaryNode(operator, operand);
             }
             return parsePrimary();
         }
@@ -190,7 +166,6 @@ final class RecursiveExpressionEngine {
                 if (!match('(')) {
                     throw new IllegalArgumentException("非法字符: .");
                 }
-                // 方法调用仍然复用“表达式参数”规则，因此参数本身也可以继续嵌套。
                 List<Node> arguments = new ArrayList<>();
                 skipWhitespace();
                 if (!match(')')) {
@@ -222,14 +197,6 @@ final class RecursiveExpressionEngine {
             ExpressionTextSupport.ParsedToken<Character> token = ExpressionTextSupport.parseCharacterLiteral(text, position);
             position = token.nextIndex();
             return token.value();
-        }
-
-        private String readComparisonOperator() {
-            String operator = ExpressionTextSupport.readComparisonOperator(text, position);
-            if (operator != null) {
-                position += operator.length();
-            }
-            return operator;
         }
 
         private String parseIdentifier() {
@@ -302,27 +269,26 @@ final class RecursiveExpressionEngine {
     }
 
     private static final class UnaryNode implements Node {
-        private final char operator;
+        private final Operator operator;
         private final Node operand;
 
-        private UnaryNode(char operator, Node operand) {
+        private UnaryNode(Operator operator, Node operand) {
             this.operator = operator;
             this.operand = operand;
         }
 
         @Override
         public RuntimeValue evaluate() {
-            RuntimeValue value = operand.evaluate();
-            return operator == '-' ? ExpressionRuntimeSupport.negate(value) : ExpressionRuntimeSupport.positive(value);
+            return operator.apply(operand.evaluate());
         }
     }
 
-    private static final class ArithmeticNode implements Node {
+    private static final class BinaryOperatorNode implements Node {
         private final Node left;
-        private final char operator;
+        private final Operator operator;
         private final Node right;
 
-        private ArithmeticNode(Node left, char operator, Node right) {
+        private BinaryOperatorNode(Node left, Operator operator, Node right) {
             this.left = left;
             this.operator = operator;
             this.right = right;
@@ -330,37 +296,7 @@ final class RecursiveExpressionEngine {
 
         @Override
         public RuntimeValue evaluate() {
-            RuntimeValue leftValue = left.evaluate();
-            RuntimeValue rightValue = right.evaluate();
-            switch (operator) {
-                case '+':
-                    return ExpressionRuntimeSupport.add(leftValue, rightValue);
-                case '-':
-                    return ExpressionRuntimeSupport.subtract(leftValue, rightValue);
-                case '*':
-                    return ExpressionRuntimeSupport.multiply(leftValue, rightValue);
-                case '/':
-                    return ExpressionRuntimeSupport.divide(leftValue, rightValue);
-                default:
-                    throw new IllegalArgumentException("非法字符: " + operator);
-            }
-        }
-    }
-
-    private static final class ComparisonNode implements Node {
-        private final Node left;
-        private final String operator;
-        private final Node right;
-
-        private ComparisonNode(Node left, String operator, Node right) {
-            this.left = left;
-            this.operator = operator;
-            this.right = right;
-        }
-
-        @Override
-        public RuntimeValue evaluate() {
-            return RuntimeValue.computed(ExpressionRuntimeSupport.compare(left.evaluate(), operator, right.evaluate()));
+            return operator.apply(left.evaluate(), right.evaluate());
         }
     }
 
@@ -377,7 +313,6 @@ final class RecursiveExpressionEngine {
 
         @Override
         public RuntimeValue evaluate() {
-            // 逻辑运算必须保留短路语义，不能先把左右两边都算完。
             boolean leftValue = ExpressionRuntimeSupport.toStandaloneBoolean(left.evaluate());
             if ("&&".equals(operator)) {
                 if (!leftValue) {

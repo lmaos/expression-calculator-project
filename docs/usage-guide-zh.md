@@ -67,6 +67,12 @@ String result = calc.calculation("price + discount", vars); // "15"
 - 字符串/字符字面量参与比较
 - 缺失变量在与 `null` 做 `==` / `!=` 比较时按 `null` 参与判断
 - 变量直接参与真值判断（见下）
+- 默认运算符之外，可通过 `OperatorRegistry` 扩展新的普通运算符（如 `%`、`^`）
+
+说明：
+
+- `&&` 和 `||` 仍保留短路实现，不通过普通运算符注册表扩展
+- 注册示例见 `expression-calculator\README_EXTENSIBILITY.md`
 
 #### 示例
 ```java

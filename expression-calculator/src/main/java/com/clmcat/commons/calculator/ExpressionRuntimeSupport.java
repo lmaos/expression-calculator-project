@@ -61,9 +61,6 @@ final class ExpressionRuntimeSupport {
         if (raw instanceof Float || raw instanceof Double) {
             return BigDecimal.valueOf(((Number) raw).doubleValue());
         }
-        if (raw instanceof BigDecimal) {
-            return (BigDecimal) raw;
-        }
         if (raw instanceof Number number) {
             return new BigDecimal(number.toString());
         }
@@ -111,10 +108,40 @@ final class ExpressionRuntimeSupport {
         return RuntimeValue.computed(toBigDecimal(left).divide(divisor, DIVISION_CONTEXT));
     }
 
+    static RuntimeValue remainder(RuntimeValue left, RuntimeValue right) {
+        ensurePresent(left);
+        ensurePresent(right);
+        BigDecimal divisor = toBigDecimal(right);
+        if (divisor.compareTo(BigDecimal.ZERO) == 0) {
+            throw new ArithmeticException("除数不能为0");
+        }
+        return RuntimeValue.computed(toBigDecimal(left).remainder(divisor));
+    }
+
+    static RuntimeValue power(RuntimeValue left, RuntimeValue right) {
+        ensurePresent(left);
+        ensurePresent(right);
+        BigDecimal base = toBigDecimal(left);
+        BigDecimal exponent = toBigDecimal(right);
+        BigDecimal normalizedExponent = exponent.stripTrailingZeros();
+        if (normalizedExponent.scale() <= 0 && normalizedExponent.compareTo(BigDecimal.ZERO) >= 0) {
+            try {
+                return RuntimeValue.computed(base.pow(normalizedExponent.intValueExact()));
+            } catch (ArithmeticException exception) {
+                // 回退到 double 幂计算，允许超大整数指数继续走近似结果。
+            }
+        }
+        double result = Math.pow(base.doubleValue(), exponent.doubleValue());
+        if (Double.isNaN(result) || Double.isInfinite(result)) {
+            throw new IllegalArgumentException("幂运算结果无效");
+        }
+        return RuntimeValue.computed(BigDecimal.valueOf(result));
+    }
+
     static RuntimeValue negate(RuntimeValue value) {
         ensurePresent(value);
         Object raw = value.raw();
-        if (value.origin() == ValueOrigin.LITERAL) {
+        if (value.origin() == RuntimeValue.Origin.LITERAL) {
             if (raw instanceof Integer current) {
                 return RuntimeValue.literal(-current);
             }
@@ -393,7 +420,7 @@ final class ExpressionRuntimeSupport {
         Object raw = value.raw();
         if (raw == null) {
             // 单独变量值为 null 时，题目要求按“假值”语义返回 false。
-            return value.origin() == ValueOrigin.VARIABLE ? "false" : "null";
+            return value.origin() == RuntimeValue.Origin.VARIABLE ? "false" : "null";
         }
         if (raw instanceof BigDecimal bigDecimal) {
             BigDecimal normalized = bigDecimal.stripTrailingZeros();
@@ -411,74 +438,6 @@ final class ExpressionRuntimeSupport {
     private static void ensurePresent(RuntimeValue value) {
         if (value.isMissingVariable()) {
             throw new IllegalArgumentException("变量不存在: " + value.missingVariableName());
-        }
-    }
-
-    enum ValueOrigin {
-        LITERAL,
-        VARIABLE,
-        COMPUTED,
-        MISSING_VARIABLE
-    }
-
-    static final class RuntimeValue {
-        private final Object raw;
-        private final ValueOrigin origin;
-        private final String missingVariableName;
-
-        private RuntimeValue(Object raw, ValueOrigin origin, String missingVariableName) {
-            this.raw = raw;
-            this.origin = origin;
-            this.missingVariableName = missingVariableName;
-        }
-
-        static RuntimeValue literal(Object raw) {
-            return new RuntimeValue(raw, ValueOrigin.LITERAL, null);
-        }
-
-        static RuntimeValue variable(Object raw) {
-            return new RuntimeValue(raw, ValueOrigin.VARIABLE, null);
-        }
-
-        static RuntimeValue missingVariable(String name) {
-            return new RuntimeValue(null, ValueOrigin.MISSING_VARIABLE, name);
-        }
-
-        static RuntimeValue computed(Object raw) {
-            return new RuntimeValue(raw, ValueOrigin.COMPUTED, null);
-        }
-
-        Object raw() {
-            return raw;
-        }
-
-        ValueOrigin origin() {
-            return origin;
-        }
-
-        boolean isMissingVariable() {
-            return origin == ValueOrigin.MISSING_VARIABLE;
-        }
-
-        String missingVariableName() {
-            return missingVariableName;
-        }
-
-        Object toInvocationArgument() {
-            if (isMissingVariable()) {
-                throw new IllegalArgumentException("变量不存在: " + missingVariableName);
-            }
-            /*
-             * 题目的关键约束：
-             * 1. 直接字面量参数保留原始类型，例如 55 -> int
-             * 2. 变量表里的数字统一按 BigDecimal 参与方法匹配
-             *
-             * 因此只有 VARIABLE + Number 时才做 BigDecimal 归一化。
-             */
-            if (origin == ValueOrigin.VARIABLE && raw instanceof Number && !(raw instanceof BigDecimal)) {
-                return new BigDecimal(raw.toString());
-            }
-            return raw;
         }
     }
 }

@@ -1,6 +1,5 @@
 package com.clmcat.commons.calculator;
 
-import com.clmcat.commons.calculator.ExpressionRuntimeSupport.RuntimeValue;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -13,26 +12,17 @@ import java.util.Map;
  * <p>它负责处理：
  * <pre>
  * 1. 数字 / null / true / false / 变量
- * 2. 一元 +/-、四则运算、比较运算
+ * 2. 一元运算、二元运算、比较运算
  * 3. 分组括号
  * 4. 方法调用与链式方法调用
  * </pre>
  *
- * <p>核心思路是“双栈求值”：
- * <pre>
- * values    : 保存已经算出的值
- * operators : 保存还没执行的运算符
- *
- * 例如：-(a + b) * c
- *
- * 扫描到 c 之前，大致会形成：
- * values    = [a, b, (a+b), c]
- * operators = [NEG, *]
- * </pre>
- *
- * <p>这样括号层级再深，也只是两个容器里的元素更多，不会继续占用 Java 调用栈。
+ * <p>核心思路仍然是“双栈求值”，但运算符本身不再写死在枚举里，
+ * 而是统一从 {@link OperatorRegistry} 查询。
  */
 final class IterativeExpressionEngine {
+
+    private static final Operator LEFT_PAREN = Operator.unary("(", Integer.MIN_VALUE, Associativity.LEFT, operand -> operand);
 
     private IterativeExpressionEngine() {
     }
@@ -48,6 +38,7 @@ final class IterativeExpressionEngine {
     private static final class Evaluator {
         private final String text;
         private final Map<String, Object> variables;
+        private final OperatorRegistry operatorRegistry = OperatorRegistry.getInstance();
         private final Deque<RuntimeValue> values = new ArrayDeque<>();
         private final Deque<Operator> operators = new ArrayDeque<>();
         private int position;
@@ -60,15 +51,8 @@ final class IterativeExpressionEngine {
         /**
          * 主循环按“当前是否期待一个操作数”在两个状态之间切换：
          * <pre>
-         * expectOperand = true   -> 只能读值、左括号、一元 +/-
+         * expectOperand = true   -> 只能读值、左括号、一元运算符
          * expectOperand = false  -> 只能读方法调用、二元运算符、右括号
-         * </pre>
-         *
-         * <p>这种状态切换可以稳定拦截很多恶意输入，例如：
-         * <pre>
-         * a + * b
-         * a )
-         * ( + )
          * </pre>
          */
         private RuntimeValue evaluate() {
@@ -80,16 +64,13 @@ final class IterativeExpressionEngine {
                 }
 
                 if (expectOperand) {
-                    if (match('+')) {
-                        pushOperator(Operator.UNARY_PLUS);
-                        continue;
-                    }
-                    if (match('-')) {
-                        pushOperator(Operator.UNARY_MINUS);
+                    Operator unaryOperator = readUnaryOperator();
+                    if (unaryOperator != null) {
+                        pushOperator(unaryOperator);
                         continue;
                     }
                     if (match('(')) {
-                        operators.push(Operator.LEFT_PAREN);
+                        operators.push(LEFT_PAREN);
                         continue;
                     }
 
@@ -126,17 +107,6 @@ final class IterativeExpressionEngine {
             return values.pop();
         }
 
-        /**
-         * primary 只把“一个最小值单元”读出来：
-         * <pre>
-         * 123
-         * true
-         * variableName
-         * </pre>
-         *
-         * <p>方法调用不在这里做，而是在主循环里把它当成 postfix（后缀操作）处理。
-         * 这样 `(obj).trim().length()` 这类链式调用会自然落在“前一个值之上”。
-         */
         private RuntimeValue parsePrimaryValue() {
             if (isEnd()) {
                 throw new IllegalArgumentException("表达式格式错误");
@@ -170,16 +140,6 @@ final class IterativeExpressionEngine {
             return RuntimeValue.variable(variables.get(identifier));
         }
 
-        /**
-         * 后缀方法调用流程：
-         * <pre>
-         * values top = receiver
-         * receiver.method(arg1, arg2)
-         *          |---- 解析参数 ----|
-         *          |---- 反射调用 ----|
-         * 结果再压回 values
-         * </pre>
-         */
         private void applyMethodCall() {
             if (values.isEmpty()) {
                 throw new IllegalArgumentException("表达式格式错误");
@@ -242,18 +202,8 @@ final class IterativeExpressionEngine {
             return token.value();
         }
 
-        /**
-         * 统一的“运算符入栈”规则：
-         * <pre>
-         * 新运算符 incoming
-         * 栈顶运算符 top
-         *
-         * 如果 top 优先级更高，或者同级但 incoming 是左结合，
-         * 就先把 top 执行掉，再让 incoming 入栈。
-         * </pre>
-         */
         private void pushOperator(Operator incoming) {
-            while (!operators.isEmpty() && operators.peek() != Operator.LEFT_PAREN
+            while (!operators.isEmpty() && operators.peek() != LEFT_PAREN
                     && shouldReduceBeforePush(operators.peek(), incoming)) {
                 applyOperator(operators.pop());
             }
@@ -261,17 +211,18 @@ final class IterativeExpressionEngine {
         }
 
         private boolean shouldReduceBeforePush(Operator stackTop, Operator incoming) {
-            if (stackTop.precedence > incoming.precedence) {
+            if (stackTop.precedence() > incoming.precedence()) {
                 return true;
             }
-            return stackTop.precedence == incoming.precedence && !incoming.rightAssociative;
+            return stackTop.precedence() == incoming.precedence()
+                    && incoming.associativity() == Associativity.LEFT;
         }
 
         private void reduceUntilLeftParen() {
-            while (!operators.isEmpty() && operators.peek() != Operator.LEFT_PAREN) {
+            while (!operators.isEmpty() && operators.peek() != LEFT_PAREN) {
                 applyOperator(operators.pop());
             }
-            if (operators.isEmpty() || operators.pop() != Operator.LEFT_PAREN) {
+            if (operators.isEmpty() || operators.pop() != LEFT_PAREN) {
                 throw new IllegalArgumentException("括号不匹配");
             }
         }
@@ -279,7 +230,7 @@ final class IterativeExpressionEngine {
         private void reduceRemainingOperators() {
             while (!operators.isEmpty()) {
                 Operator operator = operators.pop();
-                if (operator == Operator.LEFT_PAREN) {
+                if (operator == LEFT_PAREN) {
                     throw new IllegalArgumentException("括号不匹配");
                 }
                 applyOperator(operator);
@@ -287,14 +238,12 @@ final class IterativeExpressionEngine {
         }
 
         private void applyOperator(Operator operator) {
-            if (operator.unary) {
+            if (operator.isUnary()) {
                 if (values.isEmpty()) {
                     throw new IllegalArgumentException("表达式格式错误");
                 }
                 RuntimeValue operand = values.pop();
-                values.push(operator == Operator.UNARY_MINUS
-                        ? ExpressionRuntimeSupport.negate(operand)
-                        : ExpressionRuntimeSupport.positive(operand));
+                values.push(operator.apply(operand));
                 return;
             }
 
@@ -303,65 +252,29 @@ final class IterativeExpressionEngine {
             }
             RuntimeValue right = values.pop();
             RuntimeValue left = values.pop();
-            RuntimeValue result;
-            switch (operator) {
-                case MULTIPLY:
-                    result = ExpressionRuntimeSupport.multiply(left, right);
-                    break;
-                case DIVIDE:
-                    result = ExpressionRuntimeSupport.divide(left, right);
-                    break;
-                case ADD:
-                    result = ExpressionRuntimeSupport.add(left, right);
-                    break;
-                case SUBTRACT:
-                    result = ExpressionRuntimeSupport.subtract(left, right);
-                    break;
-                case GREATER:
-                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, ">", right));
-                    break;
-                case LESS:
-                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "<", right));
-                    break;
-                case GREATER_OR_EQUAL:
-                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, ">=", right));
-                    break;
-                case LESS_OR_EQUAL:
-                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "<=", right));
-                    break;
-                case EQUAL:
-                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "==", right));
-                    break;
-                case NOT_EQUAL:
-                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "!=", right));
-                    break;
-                default:
-                    throw new IllegalArgumentException("表达式格式错误");
+            values.push(operator.apply(left, right));
+        }
+
+        private Operator readUnaryOperator() {
+            Operator operator = operatorRegistry.matchUnaryOperator(text, position);
+            if (operator != null) {
+                position += operator.symbol().length();
             }
-            values.push(result);
+            return operator;
         }
 
         private Operator readBinaryOperator() {
-            for (Operator operator : Operator.BINARY_OPERATORS) {
-                if (match(operator.symbol)) {
-                    return operator;
-                }
+            Operator operator = operatorRegistry.matchBinaryOperator(text, position);
+            if (operator != null) {
+                position += operator.symbol().length();
             }
-            return null;
+            return operator;
         }
 
         private void skipWhitespace() {
             while (!isEnd() && Character.isWhitespace(currentChar())) {
                 position++;
             }
-        }
-
-        private boolean match(String expected) {
-            if (text.startsWith(expected, position)) {
-                position += expected.length();
-                return true;
-            }
-            return false;
         }
 
         private boolean match(char expected) {
@@ -382,49 +295,6 @@ final class IterativeExpressionEngine {
 
         private char currentChar() {
             return text.charAt(position);
-        }
-    }
-
-    /**
-     * 优先级数字越大，绑定能力越强。
-     *
-     * <pre>
-     * 5  unary +/-          右结合
-     * 4  * /
-     * 3  + -
-     * 2  > < >= <= == !=
-     * 1  (保留给布尔层，布尔层在 IterativeExpressionCalculator 里处理)
-     * </pre>
-     */
-    private enum Operator {
-        LEFT_PAREN("(", -1, false, false),
-        UNARY_PLUS("u+", 5, true, true),
-        UNARY_MINUS("u-", 5, true, true),
-        MULTIPLY("*", 4, false, false),
-        DIVIDE("/", 4, false, false),
-        ADD("+", 3, false, false),
-        SUBTRACT("-", 3, false, false),
-        GREATER_OR_EQUAL(">=", 2, false, false),
-        LESS_OR_EQUAL("<=", 2, false, false),
-        EQUAL("==", 2, false, false),
-        NOT_EQUAL("!=", 2, false, false),
-        GREATER(">", 2, false, false),
-        LESS("<", 2, false, false);
-
-        private static final Operator[] BINARY_OPERATORS = {
-                GREATER_OR_EQUAL, LESS_OR_EQUAL, EQUAL, NOT_EQUAL, GREATER, LESS, ADD, SUBTRACT, MULTIPLY, DIVIDE
-        };
-
-        private final String symbol;
-        private final int precedence;
-        private final boolean unary;
-        private final boolean rightAssociative;
-
-        Operator(String symbol, int precedence, boolean unary, boolean rightAssociative) {
-            this.symbol = symbol;
-            this.precedence = precedence;
-            this.unary = unary;
-            this.rightAssociative = rightAssociative;
         }
     }
 }

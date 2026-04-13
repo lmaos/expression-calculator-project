@@ -67,6 +67,12 @@ String result = calc.calculation("price + discount", vars); // "15"
 - String and character literals in comparisons
 - Missing variables are treated as `null` only for `== null` / `!= null` checks
 - Direct variable truthiness (see below)
+- Additional non-short-circuit operators can be added through `OperatorRegistry` (for example `%` and `^`)
+
+Notes:
+
+- `&&` and `||` keep their dedicated short-circuit implementation and are not part of the normal operator registry
+- See `expression-calculator\README_EXTENSIBILITY.md` for registration examples
 
 #### Example
 ```java

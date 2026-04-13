@@ -109,6 +109,16 @@ class ExpressionCalculatorTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("calculators")
+    @DisplayName("应支持默认幂运算与取模运算")
+    void shouldSupportDefaultPowerAndModuloOperators(String name, ExpressionCalculator calculator) {
+        assertEquals("8", calculator.calculation("2 ^ 3", variables));
+        assertEquals("64", calculator.calculation("(2 ^ 3) ^ 2", variables));
+        assertEquals("512", calculator.calculation("2 ^ 3 ^ 2", variables));
+        assertEquals("1", calculator.calculation("10 % 3", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
     @DisplayName("应支持零值和前导零")
     void shouldHandleZeroAndLeadingZero(String name, ExpressionCalculator calculator) {
         assertEquals("0", calculator.calculation("000 + a - 1", variables));

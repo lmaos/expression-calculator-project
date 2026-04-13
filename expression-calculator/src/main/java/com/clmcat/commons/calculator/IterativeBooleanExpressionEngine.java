@@ -1,6 +1,5 @@
 package com.clmcat.commons.calculator;
 
-import com.clmcat.commons.calculator.ExpressionRuntimeSupport.RuntimeValue;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.Map;
@@ -121,20 +120,13 @@ final class IterativeBooleanExpressionEngine {
         }
 
         /**
-         * 一个布尔原子只允许是下面两类之一：
-         * <pre>
-         * 1. comparison  : a + b > c
-         * 2. truthy atom : enabled / items / file.exists()
-         * </pre>
+         * 一个布尔原子交给值表达式引擎统一求值，再套用现有真值规则。
+         *
+         * <p>这样比较运算符、扩展运算符和方法调用只保留一套解析/求值路径，
+         * 不需要在布尔引擎里再维护一份顶层比较拆分逻辑。
          */
-        private boolean evaluateBooleanAtom(String text) {
-            ComparisonParts comparison = splitTopLevelComparison(text);
-            if (comparison != null) {
-                RuntimeValue leftValue = IterativeExpressionEngine.evaluateValue(comparison.leftExpression(), variables);
-                RuntimeValue rightValue = IterativeExpressionEngine.evaluateValue(comparison.rightExpression(), variables);
-                return ExpressionRuntimeSupport.compare(leftValue, comparison.operator(), rightValue);
-            }
-            return ExpressionRuntimeSupport.toStandaloneBoolean(IterativeExpressionEngine.evaluateValue(text, variables));
+        private boolean evaluateBooleanAtom(String atomText) {
+            return ExpressionRuntimeSupport.toStandaloneBoolean(IterativeExpressionEngine.evaluateValue(atomText, variables));
         }
 
         /**
@@ -184,10 +176,8 @@ final class IterativeBooleanExpressionEngine {
                     }
                 }
 
-                if (level == 0) {
-                    if (text.startsWith(AND_OPERATOR, index) || text.startsWith(OR_OPERATOR, index)) {
-                        return index;
-                    }
+                if (level == 0 && (text.startsWith(AND_OPERATOR, index) || text.startsWith(OR_OPERATOR, index))) {
+                    return index;
                 }
             }
             if (level != 0) {
@@ -233,43 +223,6 @@ final class IterativeBooleanExpressionEngine {
                 throw new IllegalArgumentException("括号不匹配");
             }
             return text.length();
-        }
-
-        private ComparisonParts splitTopLevelComparison(String text) {
-            int level = 0;
-            for (int index = 0; index < text.length(); index++) {
-                char current = text.charAt(index);
-                if (ExpressionTextSupport.isQuote(current)) {
-                    index = ExpressionTextSupport.skipQuotedLiteral(text, index);
-                    continue;
-                }
-                if (current == '(') {
-                    level++;
-                } else if (current == ')') {
-                    level--;
-                    if (level < 0) {
-                        throw new IllegalArgumentException("括号不匹配");
-                    }
-                }
-                if (level != 0) {
-                    continue;
-                }
-                for (String operator : ExpressionTextSupport.COMPARISON_OPERATORS) {
-                    if (!text.startsWith(operator, index)) {
-                        continue;
-                    }
-                    String leftExpression = text.substring(0, index).trim();
-                    String rightExpression = text.substring(index + operator.length()).trim();
-                    if (leftExpression.isEmpty() || rightExpression.isEmpty()) {
-                        throw new IllegalArgumentException("比较表达式格式错误");
-                    }
-                    return new ComparisonParts(leftExpression, operator, rightExpression);
-                }
-            }
-            if (level != 0) {
-                throw new IllegalArgumentException("括号不匹配");
-            }
-            return null;
         }
 
         private int skipWhitespace(int index) {
@@ -379,29 +332,5 @@ final class IterativeBooleanExpressionEngine {
         NONE,
         AND,
         OR
-    }
-
-    private static final class ComparisonParts {
-        private final String leftExpression;
-        private final String operator;
-        private final String rightExpression;
-
-        private ComparisonParts(String leftExpression, String operator, String rightExpression) {
-            this.leftExpression = leftExpression;
-            this.operator = operator;
-            this.rightExpression = rightExpression;
-        }
-
-        private String leftExpression() {
-            return leftExpression;
-        }
-
-        private String operator() {
-            return operator;
-        }
-
-        private String rightExpression() {
-            return rightExpression;
-        }
     }
 }
