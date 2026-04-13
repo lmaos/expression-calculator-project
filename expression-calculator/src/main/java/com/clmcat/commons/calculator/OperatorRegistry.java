@@ -11,11 +11,16 @@ import java.util.function.Function;
 
 public final class OperatorRegistry {
 
-    private static final int PRECEDENCE_COMPARISON = 2;
-    private static final int PRECEDENCE_ADDITIVE = 3;
-    private static final int PRECEDENCE_MULTIPLICATIVE = 4;
-    private static final int PRECEDENCE_POWER = 5;
-    private static final int PRECEDENCE_UNARY = 6;
+    private static final int PRECEDENCE_EQUALITY = 1;
+    private static final int PRECEDENCE_BITWISE_OR = 2;
+    private static final int PRECEDENCE_BITWISE_XOR = 3;
+    private static final int PRECEDENCE_BITWISE_AND = 4;
+    private static final int PRECEDENCE_RELATIONAL = 5;
+    private static final int PRECEDENCE_SHIFT = 6;
+    private static final int PRECEDENCE_ADDITIVE = 7;
+    private static final int PRECEDENCE_MULTIPLICATIVE = 8;
+    private static final int PRECEDENCE_POWER = 9;
+    private static final int PRECEDENCE_UNARY = 10;
 
     private static final Comparator<Operator> OPERATOR_ORDER = Comparator
             .comparingInt((Operator operator) -> operator.symbol().length())
@@ -92,6 +97,7 @@ public final class OperatorRegistry {
     private void registerDefaults() {
         registerUnaryInternal("+", PRECEDENCE_UNARY, Associativity.RIGHT, ExpressionRuntimeSupport::positive);
         registerUnaryInternal("-", PRECEDENCE_UNARY, Associativity.RIGHT, ExpressionRuntimeSupport::negate);
+        registerUnaryInternal("~", PRECEDENCE_UNARY, Associativity.RIGHT, ExpressionRuntimeSupport::bitwiseNot);
 
         registerBinaryInternal("*", PRECEDENCE_MULTIPLICATIVE, Associativity.LEFT, ExpressionRuntimeSupport::multiply);
         registerBinaryInternal("/", PRECEDENCE_MULTIPLICATIVE, Associativity.LEFT, ExpressionRuntimeSupport::divide);
@@ -99,13 +105,20 @@ public final class OperatorRegistry {
         registerBinaryInternal("+", PRECEDENCE_ADDITIVE, Associativity.LEFT, ExpressionRuntimeSupport::add);
         registerBinaryInternal("-", PRECEDENCE_ADDITIVE, Associativity.LEFT, ExpressionRuntimeSupport::subtract);
         registerBinaryInternal("^", PRECEDENCE_POWER, Associativity.RIGHT, ExpressionRuntimeSupport::power);
+        registerBinaryInternal("<<", PRECEDENCE_SHIFT, Associativity.LEFT, ExpressionRuntimeSupport::shiftLeft);
+        registerBinaryInternal(">>", PRECEDENCE_SHIFT, Associativity.LEFT, ExpressionRuntimeSupport::shiftRight);
+        registerBinaryInternal(">>>", PRECEDENCE_SHIFT, Associativity.LEFT, ExpressionRuntimeSupport::unsignedShiftRight);
+        registerBinaryInternal("<<<", PRECEDENCE_SHIFT, Associativity.LEFT, ExpressionRuntimeSupport::unsignedShiftLeft);
+        registerBinaryInternal("&", PRECEDENCE_BITWISE_AND, Associativity.LEFT, ExpressionRuntimeSupport::bitwiseAnd);
+        registerBinaryInternal("xor", PRECEDENCE_BITWISE_XOR, Associativity.LEFT, ExpressionRuntimeSupport::bitwiseXor);
+        registerBinaryInternal("|", PRECEDENCE_BITWISE_OR, Associativity.LEFT, ExpressionRuntimeSupport::bitwiseOr);
 
-        registerBinaryInternal(">=", PRECEDENCE_COMPARISON, Associativity.LEFT, comparison(">="));
-        registerBinaryInternal("<=", PRECEDENCE_COMPARISON, Associativity.LEFT, comparison("<="));
-        registerBinaryInternal("==", PRECEDENCE_COMPARISON, Associativity.LEFT, comparison("=="));
-        registerBinaryInternal("!=", PRECEDENCE_COMPARISON, Associativity.LEFT, comparison("!="));
-        registerBinaryInternal(">", PRECEDENCE_COMPARISON, Associativity.LEFT, comparison(">"));
-        registerBinaryInternal("<", PRECEDENCE_COMPARISON, Associativity.LEFT, comparison("<"));
+        registerBinaryInternal(">=", PRECEDENCE_RELATIONAL, Associativity.LEFT, comparison(">="));
+        registerBinaryInternal("<=", PRECEDENCE_RELATIONAL, Associativity.LEFT, comparison("<="));
+        registerBinaryInternal(">", PRECEDENCE_RELATIONAL, Associativity.LEFT, comparison(">"));
+        registerBinaryInternal("<", PRECEDENCE_RELATIONAL, Associativity.LEFT, comparison("<"));
+        registerBinaryInternal("==", PRECEDENCE_EQUALITY, Associativity.LEFT, comparison("=="));
+        registerBinaryInternal("!=", PRECEDENCE_EQUALITY, Associativity.LEFT, comparison("!="));
 
         refreshUnarySnapshot();
         refreshBinarySnapshot();

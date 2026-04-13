@@ -8,7 +8,7 @@ The `expression-calculator` library provides a unified interface for evaluating 
 - Two implementations:
   - `RecursiveExpressionCalculator`: Recursive, readable, ideal for learning and simple expressions
   - `IterativeExpressionCalculator`: Stack-based, robust for deep nesting and production
-- Supports arithmetic, comparison, logical operations, and method calls
+- Supports arithmetic, comparison, logical, bitwise operations, and method calls
 - Defensive against malicious or overly deep expressions
 
 ## 2. Environment Requirements
@@ -44,7 +44,8 @@ Exceeding the limit throws: `Expression depth limit exceeded: 100`
 ## 4. Supported Expression Types
 
 ### 4.1 Arithmetic Expressions (`calculation`)
-- Operators: `+ - * /`
+- Operators: `+ - * / % ^`
+- Bitwise operators: `~ << >> >>> <<< & | xor`
 - Parentheses: `()`
 - Unary plus/minus: `+x -x`
 - String literals `"text"` and character literals `'A'`
@@ -59,6 +60,8 @@ String result = calc.calculation("price + discount", vars); // "15"
 
 - `+` performs string concatenation when a non-numeric string/character is involved.
 - If both operands can still be interpreted as numbers, addition keeps numeric semantics.
+- `^` means power, not xor; the default bitwise xor keyword is `xor`.
+- Bitwise operators accept only integral operands and use 64-bit integer semantics. `<<<` is a DSL alias of `<<`.
 
 ### 4.2 Comparison & Logical Expressions (`compareCalculation`)
 - Comparisons: `== != > < >= <=`
@@ -67,7 +70,8 @@ String result = calc.calculation("price + discount", vars); // "15"
 - String and character literals in comparisons
 - Missing variables are treated as `null` only for `== null` / `!= null` checks
 - Direct variable truthiness (see below)
-- Additional non-short-circuit operators can be added through `OperatorRegistry` (for example `%` and `^`)
+- Arithmetic and bitwise subexpressions can appear on either side of comparisons
+- Built-in defaults already include `%`, `^`, `~`, `<<`, `>>`, `>>>`, `<<<`, `&`, `|`, and `xor`
 
 Notes:
 
@@ -78,6 +82,7 @@ Notes:
 ```java
 Map<String, Object> vars = Map.of("enabled", true, "count", 5);
 boolean ok = calc.compareCalculation("enabled && count > 0", vars); // true
+boolean bitwiseOk = calc.compareCalculation("(10 xor 12) == 6", vars); // true
 ```
 
 ## 5. Supported Variable Types for Boolean Conditions
@@ -110,10 +115,18 @@ calc.calculation("str.length()", vars); // "11"
 calc.calculation("\"a,b\".replace(\",\", \";\")", vars); // "a;b"
 ```
 
+```java
+calc.calculation("10 & 12", vars);      // "8"
+calc.calculation("2 ^ 3", vars);        // "8"
+calc.calculation("3 <<< 2", vars);      // "12"
+calc.compareCalculation("(10 xor 12) == 6", vars); // true
+```
+
 ## 7. Calculation Boundaries & Defensive Features
 - Configurable max expression depth (constructor parameter)
 - Handles unmatched parentheses, invalid numbers, missing variables, divide by zero, illegal method calls
 - Delimiters inside quoted text (`,`, `&&`, `||`, parentheses) are ignored by structural scanners
+- Single `&` and `|` no longer steal the leading half of `&&` and `||`
 - Iterative implementation is robust against stack overflow from deep nesting
 
 ## 8. Exception Cases
@@ -125,6 +138,7 @@ calc.calculation("\"a,b\".replace(\",\", \";\")", vars); // "a;b"
 | Invalid number          | `Invalid number format`                |
 | Missing variable        | `Variable not found: x`                |
 | Divide by zero          | `Division by zero`                     |
+| Non-integral bitwise op | `位运算只支持整数: x`                  |
 | Null method target      | `Method call failed: target is null`   |
 | Method type mismatch    | `Method call failed: type mismatch`    |
 

@@ -8,7 +8,7 @@
 - 两种实现：
   - `RecursiveExpressionCalculator`：递归，结构直观，适合教学和简单表达式
   - `IterativeExpressionCalculator`：显式栈，适合深层嵌套和生产环境
-- 支持算术、比较、逻辑运算及方法调用
+- 支持算术、比较、逻辑运算、位运算及方法调用
 - 防御恶意或过深表达式
 
 ## 2. 环境要求
@@ -44,7 +44,8 @@ ExpressionCalculator calc = new IterativeExpressionCalculator(100); // 最大层
 ## 4. 支持的表达式类型
 
 ### 4.1 算术表达式（`calculation`）
-- 运算符：`+ - * /`
+- 运算符：`+ - * / % ^`
+- 位运算：`~ << >> >>> <<< & | xor`
 - 括号：`()`
 - 一元正负号：`+x -x`
 - 字符串字面量 `"text"`、字符字面量 `'A'`
@@ -59,6 +60,8 @@ String result = calc.calculation("price + discount", vars); // "15"
 
 - `+` 遇到非数值字符串/字符时按拼接处理。
 - 若两侧仍都能识别为数字，则保持数值加法语义。
+- `^` 表示幂运算，不表示异或；异或关键字为 `xor`
+- 位运算只接受整数输入，按 64 位整数语义计算；`<<<` 是 `<<` 的对称别名
 
 ### 4.2 比较与逻辑表达式（`compareCalculation`）
 - 比较：`== != > < >= <=`
@@ -67,7 +70,8 @@ String result = calc.calculation("price + discount", vars); // "15"
 - 字符串/字符字面量参与比较
 - 缺失变量在与 `null` 做 `==` / `!=` 比较时按 `null` 参与判断
 - 变量直接参与真值判断（见下）
-- 默认运算符之外，可通过 `OperatorRegistry` 扩展新的普通运算符（如 `%`、`^`）
+- 比较两侧可以继续包含 `%`、`^` 与位运算子表达式
+- 默认内置已包含 `%`、`^`、`~`、`<<`、`>>`、`>>>`、`<<<`、`&`、`|`、`xor`
 
 说明：
 
@@ -78,6 +82,7 @@ String result = calc.calculation("price + discount", vars); // "15"
 ```java
 Map<String, Object> vars = Map.of("enabled", true, "count", 5);
 boolean ok = calc.compareCalculation("enabled && count > 0", vars); // true
+boolean bitwiseOk = calc.compareCalculation("(10 xor 12) == 6", vars); // true
 ```
 
 ## 5. 支持的变量类型（布尔条件）
@@ -110,10 +115,18 @@ calc.calculation("str.length()", vars); // "11"
 calc.calculation("\"a,b\".replace(\",\", \";\")", vars); // "a;b"
 ```
 
+```java
+calc.calculation("10 & 12", vars);      // "8"
+calc.calculation("2 ^ 3", vars);        // "8"
+calc.calculation("3 <<< 2", vars);      // "12"
+calc.compareCalculation("(10 xor 12) == 6", vars); // true
+```
+
 ## 7. 计算边界与防御能力
 - 可配置最大表达式层级（构造器参数）
 - 防御括号不匹配、非法数字、缺失变量、除零、非法方法调用等
 - 引号内的 `,`、`&&`、`||`、括号不会被误判为结构符号
+- 单个 `&`、`|` 不会误吞 `&&`、`||`
 - 迭代实现可防止深度递归导致栈溢出
 
 ## 8. 异常情况
@@ -125,6 +138,7 @@ calc.calculation("\"a,b\".replace(\",\", \";\")", vars); // "a;b"
 | 非法数字         | `数字格式错误`                 |
 | 缺失变量         | `变量不存在: x`                |
 | 除零             | `除数不能为0`                  |
+| 非整数位运算     | `位运算只支持整数: x`          |
 | 方法对象为null   | `方法调用失败: 对象为null`     |
 | 方法类型不匹配   | `方法调用失败，参数类型不匹配` |
 

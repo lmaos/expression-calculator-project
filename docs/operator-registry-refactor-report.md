@@ -5,7 +5,7 @@
 本轮任务的目标是把运算符的符号、优先级、结合性和求值逻辑从两个表达式引擎内部抽离出来，收敛到统一的注册表中，同时保证：
 
 1. 默认行为不变，现有测试继续通过。
-2. 新增 `%`、`^` 等运算符时，不再需要改动引擎内部逻辑。
+2. 新增 `%`、`^`、位运算符等运算符时，不再需要改动引擎内部逻辑。
 3. 重构完成并验证通过后，删掉旧的硬编码与重复拆分逻辑。
 
 本项目当前编译目标仍然是 **Java 17**。因此本轮没有回退到 Java 8 源码级别，而是在现有基线上把扩展接口设计成 `Function` / `BiFunction` 风格，满足扩展性要求。
@@ -25,7 +25,7 @@
 - 在 `OperatorRegistry` 启动时预注册当前全部默认运算符。
 - 默认求值逻辑继续直接复用 `ExpressionRuntimeSupport`，不重写算术/比较语义。
 - `&&` / `||` 继续保留专门实现，不混入普通运算符注册表。
-- 扩展测试中额外校验“注册新运算符后，旧表达式仍然保持原结果”。
+- 新增了单字符 `&` / `|` 与 `&&` / `||` 的匹配隔离，避免位运算误吞逻辑短路前缀。
 
 ### 2.2 性能影响
 
@@ -41,11 +41,14 @@
 - 相比表达式求值本身，函数式分发的额外成本可以忽略。
 - 迭代引擎仍然保持显式栈结构；深层嵌套场景的核心性能特征没有退化。
 
-### 2.3 Java 兼容性说明
+### 2.3 数值与位运算语义说明
 
 - 注册表 API 只依赖 JDK 自带的 `Function` / `BiFunction`。
 - 但项目整体仍以 Java 17 编译，未做全局 Java 8 兼容回退。
-- 对幂运算这类扩展示例，`BigDecimal.pow(int)` 在大整数指数场景下仍需注意性能；对于非整数或不适合 `pow(int)` 的指数，本轮示例回退到 `Math.pow(double, double)`。
+- 对幂运算，优先走 `BigDecimal.pow(int)`；对于非整数或不适合 `pow(int)` 的指数，回退到 `Math.pow(double, double)`。
+- 位运算按 **64 位整数** 语义执行，非整数输入会显式报错。
+- `^` 在本项目中表示幂运算，位异或关键字使用 `xor`。
+- `<<<` 作为 DSL 中的“无符号左移”别名保留，但在 64 位定长位模式下其效果与 `<<` 一致。
 
 ### 2.4 递归引擎改造思路
 
@@ -67,7 +70,7 @@
 - 解析器根据上下文选择匹配来源：
   - 期待操作数时，只匹配一元运算符。
   - 期待运算符时，只匹配二元运算符。
-- 同类运算符内部按“**符号长度优先**”匹配，保证 `>=` 优先于 `>`。
+- 同类运算符内部按“**符号长度优先**”匹配，保证 `>>>`、`<<<`、`>=` 优先于较短前缀。
 - `&&` / `||` 被禁止通过普通注册表注册，避免与短路控制流冲突。
 
 ## 3. 实际实施内容
@@ -113,15 +116,25 @@
 4. `IterativeBooleanExpressionEngine` 中额外维护的一份顶层比较拆分逻辑，改为直接复用值表达式引擎。
 5. `ExpressionRuntimeSupport.toBigDecimal(...)` 中重复的 `BigDecimal` 分支判断。
 
+### 3.5 默认运算符扩展
+
+本轮继续把原先示例级的 `%`、`^` 升级为默认能力，并新增以下默认符号：
+
+- 幂/取模：`^`、`%`
+- 位取反：`~`
+- 移位：`<<`、`>>`、`>>>`、`<<<`
+- 位与/位或/位异或：`&`、`|`、`xor`
+
+其中 `xor` 用于避免与幂运算 `^` 冲突。
+
 ## 4. 新增测试覆盖
 
-新增 `OperatorExtensionTest`，覆盖：
+新增/更新测试覆盖包括：
 
-- 注册 `%` 后的计算与比较路径。
-- 注册 `^` 后的幂运算、右结合与优先级。
-- 注册新运算符后，旧的 `+ - * / ==` 等默认行为保持不变。
-- `% 0` 的异常路径。
-- 保留符号 `&&` 与空白符号的注册防御。
+- `ExpressionCalculatorTest` 中新增默认幂运算与取模断言，包括 `(2 ^ 3) ^ 2 == 64`。
+- `OperatorExtensionTest` 校验 `%`、`^` 默认化后仍保持可扩展模型和注册防御。
+- `ExpressionCalculatorBitwiseOperatorTest` 覆盖 `~`、`<<`、`>>`、`>>>`、`<<<`、`&`、`|`、`xor`、优先级与非整数报错。
+- 既有布尔逻辑测试继续覆盖 `&&` / `||` 与单个 `&` / `|` 的边界隔离。
 
 ## 5. 三阶段验证结果
 
@@ -135,7 +148,7 @@ mvn test
 
 结果：
 
-- 共 `156` 项测试
+- 共 `166` 项测试
 - `0` failure / `0` error / `0` skipped
 
 ### 第 2 步：边界测试、安全使用测试
@@ -143,12 +156,12 @@ mvn test
 命令：
 
 ```powershell
-mvn "-Dtest=ExpressionCalculatorTest,ExpressionCalculatorBoundaryRegressionTest,ExpressionCalculatorDepthLimitAndBooleanDefenseTest,ExpressionCalculatorGeneratedEdgeCaseTest,ExpressionCalculatorLiteralBoundaryTest,IterativeExpressionCalculatorDeepNestingTest,IterativeExpressionCalculatorSpecialTypesTest,OperatorExtensionTest" test
+mvn "-Dtest=ExpressionCalculatorTest,ExpressionCalculatorBoundaryRegressionTest,ExpressionCalculatorBitwiseOperatorTest,ExpressionCalculatorDepthLimitAndBooleanDefenseTest,ExpressionCalculatorGeneratedEdgeCaseTest,ExpressionCalculatorLiteralBoundaryTest,IterativeExpressionCalculatorDeepNestingTest,IterativeExpressionCalculatorSpecialTypesTest,OperatorExtensionTest" test
 ```
 
 结果：
 
-- 共 `144` 项测试
+- 共 `154` 项测试
 - `0` failure / `0` error / `0` skipped
 
 ### 第 3 步：最终回归测试
@@ -161,12 +174,13 @@ mvn test
 
 结果：
 
-- 共 `156` 项测试
+- 共 `166` 项测试
 - `0` failure / `0` error / `0` skipped
 
 ## 6. 关键行为说明
 
-1. 默认支持的运算符集合没有变化；扩展能力通过注册表按需启用。
-2. `%`、`^` 等不是默认内置能力，需在启动时显式注册。
-3. `calculation(...)` 对 `BigDecimal` 结果仍会去掉尾随零，因此若幂运算返回 `BigDecimal("2.0")`，最终字符串结果是 `"2"`。
-4. 扩展说明文档已写入：`expression-calculator\README_EXTENSIBILITY.md`。
+1. 默认内置现已包含 `%`、`^`、`~`、`<<`、`>>`、`>>>`、`<<<`、`&`、`|`、`xor`。
+2. `^` 表示幂运算；位异或关键字是 `xor`，避免与幂运算冲突。
+3. 位运算只接受整数输入，返回 64 位整数结果；`<<<` 是 `<<` 的 DSL 对称别名。
+4. `calculation(...)` 对 `BigDecimal` 结果仍会去掉尾随零，因此幂运算回退到浮点后若得到 `BigDecimal("2.0")`，最终字符串结果仍是 `"2"`。
+5. 扩展说明文档已写入：`expression-calculator\README_EXTENSIBILITY.md`。

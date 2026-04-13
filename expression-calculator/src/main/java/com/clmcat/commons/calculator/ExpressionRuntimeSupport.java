@@ -138,6 +138,39 @@ final class ExpressionRuntimeSupport {
         return RuntimeValue.computed(BigDecimal.valueOf(result));
     }
 
+    static RuntimeValue bitwiseAnd(RuntimeValue left, RuntimeValue right) {
+        return RuntimeValue.computed(toIntegralLong(left) & toIntegralLong(right));
+    }
+
+    static RuntimeValue bitwiseOr(RuntimeValue left, RuntimeValue right) {
+        return RuntimeValue.computed(toIntegralLong(left) | toIntegralLong(right));
+    }
+
+    static RuntimeValue bitwiseXor(RuntimeValue left, RuntimeValue right) {
+        return RuntimeValue.computed(toIntegralLong(left) ^ toIntegralLong(right));
+    }
+
+    static RuntimeValue bitwiseNot(RuntimeValue value) {
+        return RuntimeValue.computed(~toIntegralLong(value));
+    }
+
+    static RuntimeValue shiftLeft(RuntimeValue left, RuntimeValue right) {
+        return RuntimeValue.computed(toIntegralLong(left) << toShiftDistance(right));
+    }
+
+    static RuntimeValue shiftRight(RuntimeValue left, RuntimeValue right) {
+        return RuntimeValue.computed(toIntegralLong(left) >> toShiftDistance(right));
+    }
+
+    static RuntimeValue unsignedShiftRight(RuntimeValue left, RuntimeValue right) {
+        return RuntimeValue.computed(toIntegralLong(left) >>> toShiftDistance(right));
+    }
+
+    static RuntimeValue unsignedShiftLeft(RuntimeValue left, RuntimeValue right) {
+        // 64 位定长语义下，左移的位模式与是否按无符号解释无关，这里保留 <<< 作为 DSL 对称别名。
+        return RuntimeValue.computed(toIntegralLong(left) << toShiftDistance(right));
+    }
+
     static RuntimeValue negate(RuntimeValue value) {
         ensurePresent(value);
         Object raw = value.raw();
@@ -258,6 +291,20 @@ final class ExpressionRuntimeSupport {
 
     private static boolean isStringLike(Object value) {
         return value instanceof CharSequence || value instanceof Character;
+    }
+
+    private static long toIntegralLong(RuntimeValue value) {
+        ensurePresent(value);
+        Object raw = value.raw();
+        try {
+            return toBigDecimal(value).stripTrailingZeros().longValueExact();
+        } catch (IllegalArgumentException | ArithmeticException exception) {
+            throw new IllegalArgumentException("位运算只支持整数: " + raw, exception);
+        }
+    }
+
+    private static int toShiftDistance(RuntimeValue value) {
+        return (int) (toIntegralLong(value) & 63L);
     }
 
     private static boolean compareByOperator(int result, String operator) {

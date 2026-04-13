@@ -69,7 +69,16 @@ public final class Operator {
     }
 
     boolean matches(String text, int start) {
-        return start >= 0 && start <= text.length() && text.startsWith(symbol, start);
+        if (start < 0 || start > text.length() || !text.startsWith(symbol, start)) {
+            return false;
+        }
+        if ("&".equals(symbol) && text.startsWith("&&", start)) {
+            return false;
+        }
+        if ("|".equals(symbol) && text.startsWith("||", start)) {
+            return false;
+        }
+        return true;
     }
 
     private static String validateSymbol(String symbol) {
