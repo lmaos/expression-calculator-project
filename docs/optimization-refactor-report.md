@@ -64,6 +64,23 @@
 - `ExpressionRuntimeSupport.add` 增加字符串式拼接支持：当操作数包含非数值字符串/字符时，`+` 走拼接；两侧都能识别为数字时仍保持数值加法语义。
 - `compareCalculation` 继续保持原有约束：字符串和字符不能直接作为最终布尔结果，必须配合比较运算符使用。
 
+### 2.5 补充修复：缺失变量与 null 比较
+
+在后续测试中发现：
+
+- `notVar == null` 预期应为 `true`
+- `price != null` 预期应为 `true`
+
+失败原因是两个实现都会在“读取变量”阶段直接抛出 `变量不存在`，比较逻辑根本没有机会执行。
+
+本次修复采用了更细粒度的策略：
+
+- 缺失变量被包装为内部“缺失变量值”
+- 仅在 `==` / `!=` 的 null 等值比较中，将缺失变量按 `null` 参与判断
+- 在算术、方法调用、大小比较、独立布尔判断等其它路径中，仍保持 `变量不存在` 异常
+
+这样既满足 `notVar == null` / `notVar != null` 这类判断，又不会把缺失变量悄悄放宽成普通值。
+
 ## 3. 主要修改文件
 
 - `expression-calculator\src\main\java\com\clmcat\commons\calculator\ExpressionTextSupport.java`
@@ -90,7 +107,7 @@ mvn test
 
 结果：
 
-- 共 `138` 项测试
+- 共 `144` 项测试
 - `0` failure / `0` error / `0` skipped
 
 ### 第 2 步：边界测试、安全使用测试
@@ -98,12 +115,12 @@ mvn test
 命令：
 
 ```powershell
-mvn "-Dtest=ExpressionCalculatorBoundaryRegressionTest,ExpressionCalculatorDepthLimitAndBooleanDefenseTest,IterativeExpressionCalculatorDeepNestingTest,IterativeExpressionCalculatorSpecialTypesTest,ExpressionCalculatorLiteralBoundaryTest" test
+mvn "-Dtest=ExpressionCalculatorTest,ExpressionCalculatorBoundaryRegressionTest,ExpressionCalculatorDepthLimitAndBooleanDefenseTest,ExpressionCalculatorGeneratedEdgeCaseTest,ExpressionCalculatorLiteralBoundaryTest,IterativeExpressionCalculatorDeepNestingTest,IterativeExpressionCalculatorSpecialTypesTest" test
 ```
 
 结果：
 
-- 共 `64` 项测试
+- 共 `132` 项测试
 - `0` failure / `0` error / `0` skipped
 
 ### 第 3 步：思考潜在问题后的最终回归
@@ -115,6 +132,7 @@ mvn "-Dtest=ExpressionCalculatorBoundaryRegressionTest,ExpressionCalculatorDepth
 - 转义引号是否会导致扫描提前结束
 - 新增字符字面量后，是否破坏 compareCalculation 的真值规则
 - 字符串拼接能力是否会影响原有“数字字符串 + 数字”的数值求和语义
+- 缺失变量是否只在 `null` 等值比较中被放宽，而不会影响其它错误路径
 
 命令：
 
@@ -124,8 +142,13 @@ mvn test
 
 结果：
 
-- 共 `138` 项测试
+- 共 `144` 项测试
 - `0` failure / `0` error / `0` skipped
+
+## 6. 提交与变更记录
+
+- 保护性提交：`a618a94` `Refactor parser support and add literal coverage`
+- 本次继续修复了缺失变量的 `null` 比较语义，并补充了对应测试与文档
 
 ## 5. 后续可继续扩展的方向
 

@@ -66,6 +66,13 @@ class ExpressionCalculatorTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("calculators")
+    @DisplayName("测试缺失变量非NULL判断")
+    void testMissingVariableNotNullCalculation(String name, ExpressionCalculator calculator) {
+        assertFalse(calculator.compareCalculation("notVar != null", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
     @DisplayName("应支持变量和括号计算")
     void shouldCalculateExpressionWithVariablesAndParentheses(String name, ExpressionCalculator calculator) {
         assertEquals("11", calculator.calculation("a + b * (c + 2)", variables));

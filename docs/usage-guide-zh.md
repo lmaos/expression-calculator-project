@@ -65,6 +65,7 @@ String result = calc.calculation("price + discount", vars); // "15"
 - 逻辑：`&& ||`
 - 括号
 - 字符串/字符字面量参与比较
+- 缺失变量在与 `null` 做 `==` / `!=` 比较时按 `null` 参与判断
 - 变量直接参与真值判断（见下）
 
 #### 示例
@@ -85,6 +86,7 @@ boolean ok = calc.compareCalculation("enabled && count > 0", vars); // true
 | 数组         | 长度>0为 true       |
 
 数字/字符串/字符需配合比较运算符使用（如 `a > 0`）。
+缺失变量若不参与 `null` 等值比较，仍会报 `变量不存在`。
 
 ## 6. 表达式中的方法调用
 - 支持无参、有参、链式方法调用

@@ -165,7 +165,7 @@ final class IterativeExpressionEngine {
 
         private RuntimeValue parseVariable(String identifier) {
             if (variables == null || !variables.containsKey(identifier)) {
-                throw new IllegalArgumentException("变量不存在: " + identifier);
+                return RuntimeValue.missingVariable(identifier);
             }
             return RuntimeValue.variable(variables.get(identifier));
         }

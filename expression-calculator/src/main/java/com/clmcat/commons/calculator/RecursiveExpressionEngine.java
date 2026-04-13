@@ -295,7 +295,7 @@ final class RecursiveExpressionEngine {
         @Override
         public RuntimeValue evaluate() {
             if (variables == null || !variables.containsKey(name)) {
-                throw new IllegalArgumentException("变量不存在: " + name);
+                return RuntimeValue.missingVariable(name);
             }
             return RuntimeValue.variable(variables.get(name));
         }

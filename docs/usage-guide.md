@@ -92,6 +92,7 @@ String result = calculator.calculation("a + b * (c + 2)", variables);
 - 逻辑运算：`&& ||`
 - 布尔分组：`()`
 - 字符串/字符字面量参与比较
+- 缺失变量在与 `null` 做 `==` / `!=` 比较时按 `null` 参与判断
 - 变量、文件、集合、布尔值直接参与真值判断
 
 ### 示例
@@ -131,6 +132,7 @@ boolean r3 = calculator.compareCalculation("isTrue == true && x > 0", variables)
 说明：
 
 - 数字、字符串、字符不能直接作为最终布尔结果
+- 缺失变量若不参与 `null` 等值比较，仍按“变量不存在”报错
 - 例如 `compareCalculation("a + b", variables)` 会报错，因为缺少比较运算符
 
 ## 7. 方法调用

@@ -65,6 +65,7 @@ String result = calc.calculation("price + discount", vars); // "15"
 - Logical: `&& ||`
 - Parentheses
 - String and character literals in comparisons
+- Missing variables are treated as `null` only for `== null` / `!= null` checks
 - Direct variable truthiness (see below)
 
 #### Example
@@ -85,6 +86,7 @@ In `compareCalculation`, these types can be used directly as conditions:
 | Array        | length > 0                  |
 
 Numbers, strings, and characters must be used with comparison operators (e.g., `a > 0`).
+Missing variables still raise a variable-not-found error outside of null equality checks.
 
 ## 6. Method Calls in Expressions
 - Supports no-arg, arg, and chained method calls.

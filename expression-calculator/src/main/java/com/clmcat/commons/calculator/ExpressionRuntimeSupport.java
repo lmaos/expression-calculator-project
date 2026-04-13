@@ -50,6 +50,7 @@ final class ExpressionRuntimeSupport {
     }
 
     static BigDecimal toBigDecimal(RuntimeValue value) {
+        ensurePresent(value);
         Object raw = value.raw();
         if (raw instanceof BigDecimal bigDecimal) {
             return bigDecimal;
@@ -80,6 +81,8 @@ final class ExpressionRuntimeSupport {
     }
 
     static RuntimeValue add(RuntimeValue left, RuntimeValue right) {
+        ensurePresent(left);
+        ensurePresent(right);
         if (shouldConcatenate(left.raw(), right.raw())) {
             return RuntimeValue.computed(String.valueOf(left.raw()) + String.valueOf(right.raw()));
         }
@@ -87,14 +90,20 @@ final class ExpressionRuntimeSupport {
     }
 
     static RuntimeValue subtract(RuntimeValue left, RuntimeValue right) {
+        ensurePresent(left);
+        ensurePresent(right);
         return RuntimeValue.computed(toBigDecimal(left).subtract(toBigDecimal(right)));
     }
 
     static RuntimeValue multiply(RuntimeValue left, RuntimeValue right) {
+        ensurePresent(left);
+        ensurePresent(right);
         return RuntimeValue.computed(toBigDecimal(left).multiply(toBigDecimal(right)));
     }
 
     static RuntimeValue divide(RuntimeValue left, RuntimeValue right) {
+        ensurePresent(left);
+        ensurePresent(right);
         BigDecimal divisor = toBigDecimal(right);
         if (divisor.compareTo(BigDecimal.ZERO) == 0) {
             throw new ArithmeticException("除数不能为0");
@@ -103,6 +112,7 @@ final class ExpressionRuntimeSupport {
     }
 
     static RuntimeValue negate(RuntimeValue value) {
+        ensurePresent(value);
         Object raw = value.raw();
         if (value.origin() == ValueOrigin.LITERAL) {
             if (raw instanceof Integer current) {
@@ -125,10 +135,12 @@ final class ExpressionRuntimeSupport {
     }
 
     static RuntimeValue positive(RuntimeValue value) {
+        ensurePresent(value);
         return value;
     }
 
     static boolean toStandaloneBoolean(RuntimeValue value) {
+        ensurePresent(value);
         Object raw = value.raw();
         if (raw == null) {
             return false;
@@ -167,16 +179,17 @@ final class ExpressionRuntimeSupport {
     }
 
     static boolean compare(RuntimeValue left, String operator, RuntimeValue right) {
-        Object leftRaw = left.raw();
-        Object rightRaw = right.raw();
-
         if ("==".equals(operator)) {
-            return equality(leftRaw, rightRaw);
+            return equality(left, right);
         }
         if ("!=".equals(operator)) {
-            return !equality(leftRaw, rightRaw);
+            return !equality(left, right);
         }
 
+        ensurePresent(left);
+        ensurePresent(right);
+        Object leftRaw = left.raw();
+        Object rightRaw = right.raw();
         if (leftRaw == null || rightRaw == null) {
             throw new IllegalArgumentException("比较表达式格式错误");
         }
@@ -199,14 +212,16 @@ final class ExpressionRuntimeSupport {
         throw new IllegalArgumentException("比较表达式格式错误");
     }
 
-    private static boolean equality(Object left, Object right) {
-        if (left == null || right == null) {
-            return left == right;
+    private static boolean equality(RuntimeValue left, RuntimeValue right) {
+        Object leftRaw = left.isMissingVariable() ? null : left.raw();
+        Object rightRaw = right.isMissingVariable() ? null : right.raw();
+        if (leftRaw == null || rightRaw == null) {
+            return leftRaw == rightRaw;
         }
-        if (isNumericCandidate(left) && isNumericCandidate(right)) {
-            return toBigDecimal(RuntimeValue.computed(left)).compareTo(toBigDecimal(RuntimeValue.computed(right))) == 0;
+        if (isNumericCandidate(leftRaw) && isNumericCandidate(rightRaw)) {
+            return toBigDecimal(RuntimeValue.computed(leftRaw)).compareTo(toBigDecimal(RuntimeValue.computed(rightRaw))) == 0;
         }
-        return Objects.equals(left, right);
+        return Objects.equals(leftRaw, rightRaw);
     }
 
     private static boolean shouldConcatenate(Object left, Object right) {
@@ -249,6 +264,7 @@ final class ExpressionRuntimeSupport {
     }
 
     static RuntimeValue invokeMethod(RuntimeValue receiverValue, String methodName, List<RuntimeValue> arguments) {
+        ensurePresent(receiverValue);
         Object receiver = receiverValue.raw();
         if (receiver == null) {
             throw new IllegalArgumentException("方法调用失败: 对象为空, 方法: " + methodName);
@@ -373,6 +389,7 @@ final class ExpressionRuntimeSupport {
     }
 
     static String formatForCalculation(RuntimeValue value) {
+        ensurePresent(value);
         Object raw = value.raw();
         if (raw == null) {
             // 单独变量值为 null 时，题目要求按“假值”语义返回 false。
@@ -391,31 +408,44 @@ final class ExpressionRuntimeSupport {
         return String.valueOf(raw);
     }
 
+    private static void ensurePresent(RuntimeValue value) {
+        if (value.isMissingVariable()) {
+            throw new IllegalArgumentException("变量不存在: " + value.missingVariableName());
+        }
+    }
+
     enum ValueOrigin {
         LITERAL,
         VARIABLE,
-        COMPUTED
+        COMPUTED,
+        MISSING_VARIABLE
     }
 
     static final class RuntimeValue {
         private final Object raw;
         private final ValueOrigin origin;
+        private final String missingVariableName;
 
-        private RuntimeValue(Object raw, ValueOrigin origin) {
+        private RuntimeValue(Object raw, ValueOrigin origin, String missingVariableName) {
             this.raw = raw;
             this.origin = origin;
+            this.missingVariableName = missingVariableName;
         }
 
         static RuntimeValue literal(Object raw) {
-            return new RuntimeValue(raw, ValueOrigin.LITERAL);
+            return new RuntimeValue(raw, ValueOrigin.LITERAL, null);
         }
 
         static RuntimeValue variable(Object raw) {
-            return new RuntimeValue(raw, ValueOrigin.VARIABLE);
+            return new RuntimeValue(raw, ValueOrigin.VARIABLE, null);
+        }
+
+        static RuntimeValue missingVariable(String name) {
+            return new RuntimeValue(null, ValueOrigin.MISSING_VARIABLE, name);
         }
 
         static RuntimeValue computed(Object raw) {
-            return new RuntimeValue(raw, ValueOrigin.COMPUTED);
+            return new RuntimeValue(raw, ValueOrigin.COMPUTED, null);
         }
 
         Object raw() {
@@ -426,7 +456,18 @@ final class ExpressionRuntimeSupport {
             return origin;
         }
 
+        boolean isMissingVariable() {
+            return origin == ValueOrigin.MISSING_VARIABLE;
+        }
+
+        String missingVariableName() {
+            return missingVariableName;
+        }
+
         Object toInvocationArgument() {
+            if (isMissingVariable()) {
+                throw new IllegalArgumentException("变量不存在: " + missingVariableName);
+            }
             /*
              * 题目的关键约束：
              * 1. 直接字面量参数保留原始类型，例如 55 -> int
