@@ -61,66 +61,84 @@ public class BeanUtils {
     }
 
     /**
-     * 搜索匹配的Method，类型匹配: int  (int , Integer)均匹配, 实现思路： 先搜索一般匹配方法，如果未匹配则如果参数中存在基本类型就进行一次模糊匹配。 方法参数中 Integer 转为 int继续匹配。
-     * @param clazz bean type
-     * @param methodName 方法名字
-     * @param parameterTypes 参数类型
-     * @return 查找方法
+     * 搜索匹配的 Method，支持以下宽松匹配规则：
+     * <ul>
+     *   <li>实参类型是形参类型的子类或实现类（isAssignableFrom）</li>
+     *   <li>形参与实参互为基本类型及其包装类（例如 int 与 Integer 可互相匹配）</li>
+     * </ul>
+     *
+     * @param clazz          目标类
+     * @param methodName     方法名
+     * @param parameterTypes 实参类型数组
+     * @return 匹配的方法，若无匹配则返回 null
      */
     public static Method findFuzzyMethod(Class<?> clazz, String methodName, Class<?>... parameterTypes) {
         Map<String, List<Method>> methodMap = findPublicMethods(clazz);
         List<Method> methodList = methodMap.get(methodName);
-        if (methodList == null) {
+        if (methodList == null || methodList.isEmpty()) {
             return null;
         }
-        for (Method m : methodList) {
-            Class<?>[] methodParameterTypes = m.getParameterTypes();
-            //  先进性一次完整匹配
-            if (methodParameterTypes.length == parameterTypes.length) {
-                boolean match = false;
-                for (int i = 0; i < methodParameterTypes.length; i++) {
-                    if (methodParameterTypes[i] == parameterTypes[i]) {
-                        match =  true;
-                    } else {
-                        match =  false;
-                        break;
-                    }
-                }
-                if (match) {
-                    return m;
-                }
+
+        // 优先精确匹配（类型完全相同或 isAssignableFrom）
+        for (Method method : methodList) {
+            if (isParameterTypesMatch(method.getParameterTypes(), parameterTypes, false)) {
+                return method;
             }
         }
 
-        boolean match = false;
-
-        for (Method m : methodList) {
-            Class<?>[] methodParameterTypes = m.getParameterTypes();
-            // 是否进行模糊匹配
-            boolean isFuzzyMatch = false;
-            // 变量存在基本类型，和布尔类型时候，尝试一次模糊匹配。
-            for (Class<?> parameterType : parameterTypes) {
-                if (isFuzzyMatch = parameterType.isPrimitive()) {
-                    break;
-                }
-            }
-            //  先进性一次完整匹配, 在进行模糊匹配
-            if (isFuzzyMatch) {
-                for (int i = 0; i < methodParameterTypes.length; i++) {
-                    Class<?> aClass = primitiveWrapperMap.getOrDefault(methodParameterTypes[i], methodParameterTypes[i]);
-                    if (aClass == parameterTypes[i]) {
-                        match = true;
-                    } else {
-                        match = false;
-                        break;
-                    }
-                }
-                if (match) {
-                    return m;
-                }
+        // 再尝试模糊匹配（允许基本类型与包装类互转）
+        for (Method method : methodList) {
+            if (isParameterTypesMatch(method.getParameterTypes(), parameterTypes, true)) {
+                return method;
             }
         }
+
         return null;
+    }
+
+    /**
+     * 判断形参类型数组与实参类型数组是否匹配。
+     *
+     * @param formalTypes 形参类型
+     * @param actualTypes 实参类型
+     * @param fuzzy       是否开启模糊匹配（基本类型与包装类互转）
+     * @return 是否匹配
+     */
+    private static boolean isParameterTypesMatch(Class<?>[] formalTypes, Class<?>[] actualTypes, boolean fuzzy) {
+        if (formalTypes.length != actualTypes.length) {
+            return false;
+        }
+        for (int i = 0; i < formalTypes.length; i++) {
+            Class<?> formal = formalTypes[i];
+            Class<?> actual = actualTypes[i];
+
+            // 统一处理 actual 为 null 的情况
+            if (actual == null) {
+                if (formal.isPrimitive()) {
+                    return false;
+                }
+                continue;
+            }
+
+            if (formal == actual || formal.isAssignableFrom(actual)) {
+                continue;
+            }
+            if (fuzzy && isMatchingPrimitiveAndWrapper(formal, actual)) {
+                continue;
+            }
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 判断两个类型是否互为基本类型及其包装类。
+     * 例如 int 与 Integer、boolean 与 Boolean 等。
+     */
+    private static boolean isMatchingPrimitiveAndWrapper(Class<?> type1, Class<?> type2) {
+        Class<?> wrapped1 = primitiveWrapperMap.getOrDefault(type1, type1);
+        Class<?> wrapped2 = primitiveWrapperMap.getOrDefault(type2, type2);
+        return wrapped1 == wrapped2;
     }
 
 }

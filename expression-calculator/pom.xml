@@ -6,7 +6,7 @@
 
     <groupId>com.clmcat.commons</groupId>
     <artifactId>expression-calculator</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
     <name>expression-calculator</name>
 
     <properties>
