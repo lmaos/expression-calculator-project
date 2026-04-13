@@ -1,4 +1,4 @@
-package com.example.calculator;
+package com.clmcat.commons.calculator;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;

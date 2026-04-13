@@ -1,4 +1,4 @@
-package com.example.calculator;
+package com.clmcat.commons.calculator;
 
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;

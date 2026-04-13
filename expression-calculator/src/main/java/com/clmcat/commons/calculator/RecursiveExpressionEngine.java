@@ -1,6 +1,6 @@
-package com.example.calculator;
+package com.clmcat.commons.calculator;
 
-import com.example.calculator.ExpressionRuntimeSupport.RuntimeValue;
+import com.clmcat.commons.calculator.ExpressionRuntimeSupport.RuntimeValue;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;

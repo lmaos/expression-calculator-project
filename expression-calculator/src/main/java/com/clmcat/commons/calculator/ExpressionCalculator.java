@@ -1,4 +1,4 @@
-package com.example.calculator;
+package com.clmcat.commons.calculator;
 
 import java.util.Map;
 
