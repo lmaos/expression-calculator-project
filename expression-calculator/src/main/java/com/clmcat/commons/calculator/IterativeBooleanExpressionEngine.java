@@ -389,6 +389,27 @@ final class IterativeBooleanExpressionEngine {
         OR
     }
 
-    private record ComparisonParts(String leftExpression, String operator, String rightExpression) {
+    private static final class ComparisonParts {
+        private final String leftExpression;
+        private final String operator;
+        private final String rightExpression;
+
+        private ComparisonParts(String leftExpression, String operator, String rightExpression) {
+            this.leftExpression = leftExpression;
+            this.operator = operator;
+            this.rightExpression = rightExpression;
+        }
+
+        private String leftExpression() {
+            return leftExpression;
+        }
+
+        private String operator() {
+            return operator;
+        }
+
+        private String rightExpression() {
+            return rightExpression;
+        }
     }
 }

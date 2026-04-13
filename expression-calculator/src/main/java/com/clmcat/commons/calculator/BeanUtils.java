@@ -61,7 +61,7 @@ public class BeanUtils {
     }
 
     /**
-     * 搜索匹配的Method，类型匹配: int  (int , Integer)均匹配
+     * 搜索匹配的Method，类型匹配: int  (int , Integer)均匹配, 实现思路： 先搜索一般匹配方法，如果未匹配则如果参数中存在基本类型就进行一次模糊匹配。 方法参数中 Integer 转为 int继续匹配。
      * @param clazz bean type
      * @param methodName 方法名字
      * @param parameterTypes 参数类型

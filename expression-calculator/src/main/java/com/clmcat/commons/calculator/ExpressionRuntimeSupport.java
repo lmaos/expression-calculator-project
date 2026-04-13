@@ -277,13 +277,18 @@ final class ExpressionRuntimeSupport {
     }
 
     private static boolean compareByOperator(int result, String operator) {
-        return switch (operator) {
-            case ">" -> result > 0;
-            case "<" -> result < 0;
-            case ">=" -> result >= 0;
-            case "<=" -> result <= 0;
-            default -> throw new IllegalArgumentException("不支持的比较运算符: " + operator);
-        };
+        switch (operator) {
+            case ">":
+                return result > 0;
+            case "<":
+                return result < 0;
+            case ">=":
+                return result >= 0;
+            case "<=":
+                return result <= 0;
+            default:
+                throw new IllegalArgumentException("不支持的比较运算符: " + operator);
+        }
     }
 
     private static boolean isNumericCandidate(Object value) {

@@ -198,7 +198,7 @@ final class IterativeExpressionEngine {
         private List<RuntimeValue> parseArguments(int startInclusive, int endExclusive) {
             String argumentText = text.substring(startInclusive, endExclusive).trim();
             if (argumentText.isEmpty()) {
-                return List.of();
+                return java.util.Collections.emptyList();
             }
             List<String> parts = splitArguments(argumentText);
             List<RuntimeValue> arguments = new ArrayList<>(parts.size());
@@ -405,19 +405,42 @@ final class IterativeExpressionEngine {
             }
             RuntimeValue right = values.pop();
             RuntimeValue left = values.pop();
-            values.push(switch (operator) {
-                case MULTIPLY -> ExpressionRuntimeSupport.multiply(left, right);
-                case DIVIDE -> ExpressionRuntimeSupport.divide(left, right);
-                case ADD -> ExpressionRuntimeSupport.add(left, right);
-                case SUBTRACT -> ExpressionRuntimeSupport.subtract(left, right);
-                case GREATER -> RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, ">", right));
-                case LESS -> RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "<", right));
-                case GREATER_OR_EQUAL -> RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, ">=", right));
-                case LESS_OR_EQUAL -> RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "<=", right));
-                case EQUAL -> RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "==", right));
-                case NOT_EQUAL -> RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "!=", right));
-                default -> throw new IllegalArgumentException("表达式格式错误");
-            });
+            RuntimeValue result;
+            switch (operator) {
+                case MULTIPLY:
+                    result = ExpressionRuntimeSupport.multiply(left, right);
+                    break;
+                case DIVIDE:
+                    result = ExpressionRuntimeSupport.divide(left, right);
+                    break;
+                case ADD:
+                    result = ExpressionRuntimeSupport.add(left, right);
+                    break;
+                case SUBTRACT:
+                    result = ExpressionRuntimeSupport.subtract(left, right);
+                    break;
+                case GREATER:
+                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, ">", right));
+                    break;
+                case LESS:
+                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "<", right));
+                    break;
+                case GREATER_OR_EQUAL:
+                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, ">=", right));
+                    break;
+                case LESS_OR_EQUAL:
+                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "<=", right));
+                    break;
+                case EQUAL:
+                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "==", right));
+                    break;
+                case NOT_EQUAL:
+                    result = RuntimeValue.computed(ExpressionRuntimeSupport.compare(left, "!=", right));
+                    break;
+                default:
+                    throw new IllegalArgumentException("表达式格式错误");
+            }
+            values.push(result);
         }
 
         private Operator readBinaryOperator() {

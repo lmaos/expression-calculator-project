@@ -389,13 +389,18 @@ final class RecursiveExpressionEngine {
         public RuntimeValue evaluate() {
             RuntimeValue leftValue = left.evaluate();
             RuntimeValue rightValue = right.evaluate();
-            return switch (operator) {
-                case '+' -> ExpressionRuntimeSupport.add(leftValue, rightValue);
-                case '-' -> ExpressionRuntimeSupport.subtract(leftValue, rightValue);
-                case '*' -> ExpressionRuntimeSupport.multiply(leftValue, rightValue);
-                case '/' -> ExpressionRuntimeSupport.divide(leftValue, rightValue);
-                default -> throw new IllegalArgumentException("非法字符: " + operator);
-            };
+            switch (operator) {
+                case '+':
+                    return ExpressionRuntimeSupport.add(leftValue, rightValue);
+                case '-':
+                    return ExpressionRuntimeSupport.subtract(leftValue, rightValue);
+                case '*':
+                    return ExpressionRuntimeSupport.multiply(leftValue, rightValue);
+                case '/':
+                    return ExpressionRuntimeSupport.divide(leftValue, rightValue);
+                default:
+                    throw new IllegalArgumentException("非法字符: " + operator);
+            }
         }
     }
 
