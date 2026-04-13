@@ -6,12 +6,10 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.io.TempDir;
@@ -45,12 +43,12 @@ class ExpressionCalculatorGeneratedLogicTest {
         variables.put("str", "geekbang");
         variables.put("num1", new BigDecimal("123"));
         variables.put("num2", 55);
-        variables.put("items", List.of(1, 2, 3));
+        variables.put("items", Arrays.asList(1, 2, 3));
         variables.put("emptyItems", Collections.emptyList());
         variables.put("nullableFile", null);
 
         Path existingPath = tempDir.resolve("logic.txt");
-        Files.writeString(existingPath, "ok");
+        Files.write(existingPath, "ok".getBytes(StandardCharsets.UTF_8));
         File file = existingPath.toFile();
         variables.put("file", file);
     }

@@ -7,6 +7,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import java.io.File;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.HashMap;
@@ -43,7 +44,7 @@ class ExpressionCalculatorGeneratedEdgeCaseTest {
         variables.put("nullable", null);
 
         Path filePath = tempDir.resolve("edge.txt");
-        Files.writeString(filePath, "edge");
+        Files.write(filePath, "edge".getBytes(StandardCharsets.UTF_8));
         File file = filePath.toFile();
         variables.put("file", file);
     }

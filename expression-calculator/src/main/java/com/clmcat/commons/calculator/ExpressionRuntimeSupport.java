@@ -57,8 +57,8 @@ final class ExpressionRuntimeSupport {
     static BigDecimal toBigDecimal(RuntimeValue value) {
         ensurePresent(value);
         Object raw = value.raw();
-        if (raw instanceof BigDecimal bigDecimal) {
-            return bigDecimal;
+        if (raw instanceof BigDecimal) {
+            return (BigDecimal) raw;
         }
         if (raw instanceof Byte || raw instanceof Short || raw instanceof Integer || raw instanceof Long) {
             return BigDecimal.valueOf(((Number) raw).longValue());
@@ -66,10 +66,11 @@ final class ExpressionRuntimeSupport {
         if (raw instanceof Float || raw instanceof Double) {
             return BigDecimal.valueOf(((Number) raw).doubleValue());
         }
-        if (raw instanceof Number number) {
-            return new BigDecimal(number.toString());
+        if (raw instanceof Number) {
+            return new BigDecimal(((Number) raw).toString());
         }
-        if (raw instanceof CharSequence charSequence) {
+        if (raw instanceof CharSequence) {
+            CharSequence charSequence = (CharSequence) raw;
             try {
                 return new BigDecimal(charSequence.toString().trim());
             } catch (NumberFormatException exception) {
@@ -181,20 +182,20 @@ final class ExpressionRuntimeSupport {
         ensurePresent(value);
         Object raw = value.raw();
         if (value.origin() == RuntimeValue.Origin.LITERAL) {
-            if (raw instanceof Integer current) {
-                return RuntimeValue.literal(-current);
+            if (raw instanceof Integer) {
+                return RuntimeValue.literal(-(Integer) raw);
             }
-            if (raw instanceof Long current) {
-                return RuntimeValue.literal(-current);
+            if (raw instanceof Long) {
+                return RuntimeValue.literal(-(Long) raw);
             }
-            if (raw instanceof Float current) {
-                return RuntimeValue.literal(-current);
+            if (raw instanceof Float) {
+                return RuntimeValue.literal(-(Float) raw);
             }
-            if (raw instanceof Double current) {
-                return RuntimeValue.literal(-current);
+            if (raw instanceof Double) {
+                return RuntimeValue.literal(-(Double) raw);
             }
-            if (raw instanceof BigDecimal current) {
-                return RuntimeValue.literal(current.negate());
+            if (raw instanceof BigDecimal) {
+                return RuntimeValue.literal(((BigDecimal) raw).negate());
             }
         }
         return RuntimeValue.computed(toBigDecimal(value).negate());
@@ -224,17 +225,20 @@ final class ExpressionRuntimeSupport {
          * 数字 / 字符串不允许直接当 compareCalculation 的最终结果，
          * 否则像 "a + b" 这种输入会悄悄被解释成 true/false，破坏题目约束。
          */
-        if (raw instanceof Boolean bool) {
-            return bool;
+        if (raw == null) {
+            return false;
         }
-        if (raw instanceof File file) {
-            return file.exists();
+        if (raw instanceof Boolean) {
+            return (Boolean) raw;
         }
-        if (raw instanceof Collection<?> collection) {
-            return !collection.isEmpty();
+        if (raw instanceof File) {
+            return ((File) raw).exists();
         }
-        if (raw instanceof Map<?, ?> map) {
-            return !map.isEmpty();
+        if (raw instanceof Collection) {
+            return !((Collection<?>) raw).isEmpty();
+        }
+        if (raw instanceof Map) {
+            return !((Map<?, ?>) raw).isEmpty();
         }
         if (raw.getClass().isArray()) {
             return Array.getLength(raw) > 0;
@@ -333,7 +337,8 @@ final class ExpressionRuntimeSupport {
         if (value instanceof Number) {
             return true;
         }
-        if (value instanceof CharSequence charSequence) {
+        if (value instanceof CharSequence) {
+            CharSequence charSequence = (CharSequence) value;
             try {
                 new BigDecimal(charSequence.toString().trim());
                 return true;
@@ -360,11 +365,11 @@ final class ExpressionRuntimeSupport {
         try {
             return RuntimeValue.computed(method.invoke(receiver, converted));
         } catch (IllegalAccessException | InvocationTargetException exception) {
-            Throwable cause = exception instanceof InvocationTargetException invocationTargetException
-                    ? invocationTargetException.getTargetException()
-                    : exception;
-            throw new IllegalArgumentException("方法调用失败: " + receiver.getClass().getSimpleName() + "." + methodName,
-                    cause);
+            Throwable cause = exception;
+            if (exception instanceof InvocationTargetException) {
+                cause = ((InvocationTargetException) exception).getTargetException();
+            }
+            throw new IllegalArgumentException("方法调用失败: " + receiver.getClass().getSimpleName() + "." + methodName, cause);
         }
     }
 
@@ -478,14 +483,15 @@ final class ExpressionRuntimeSupport {
             // 单独变量值为 null 时，题目要求按“假值”语义返回 false。
             return value.origin() == RuntimeValue.Origin.VARIABLE ? "false" : "null";
         }
-        if (raw instanceof BigDecimal bigDecimal) {
+        if (raw instanceof BigDecimal) {
+            BigDecimal bigDecimal = (BigDecimal) raw;
             BigDecimal normalized = bigDecimal.stripTrailingZeros();
             return normalized.compareTo(BigDecimal.ZERO) == 0 ? "0" : normalized.toPlainString();
         }
-        if (raw instanceof Boolean bool) {
-            return Boolean.toString(bool);
+        if (raw instanceof Boolean) {
+            return Boolean.toString((Boolean) raw);
         }
-        if (raw instanceof File || raw instanceof Collection<?> || raw instanceof Map<?, ?> || raw.getClass().isArray()) {
+        if (raw instanceof File || raw instanceof Collection || raw instanceof Map || raw.getClass().isArray()) {
             return Boolean.toString(toStandaloneBoolean(value));
         }
         return String.valueOf(raw);

@@ -5,13 +5,11 @@ import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -53,13 +51,16 @@ class ExpressionCalculatorBoundaryRegressionTest {
         variables.put("beta", "beta");
         variables.put("startDate", LocalDate.of(2024, 1, 1));
         variables.put("endDate", LocalDate.of(2024, 1, 2));
-        variables.put("items", List.of(1, 2));
+        variables.put("items", Arrays.asList(1, 2));
         variables.put("emptyItems", Collections.emptyList());
-        variables.put("metadata", Map.of("k", "v"));
+
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("k", "v");
+        variables.put("metadata", metadata);
         variables.put("emptyMetadata", Collections.emptyMap());
 
         Path existingPath = tempDir.resolve("exists.txt");
-        Files.writeString(existingPath, "ok");
+        Files.write(existingPath, "ok".getBytes(StandardCharsets.UTF_8));
         variables.put("existingFile", existingPath.toFile());
         variables.put("missingFile", tempDir.resolve("missing.txt").toFile());
     }
