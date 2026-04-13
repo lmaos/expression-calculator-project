@@ -124,12 +124,16 @@ final class IterativeExpressionEngine {
             }
             if (ExpressionTextSupport.isIdentifierStart(current)) {
                 String identifier = parseIdentifier();
-                return switch (identifier) {
-                    case "true" -> RuntimeValue.literal(Boolean.TRUE);
-                    case "false" -> RuntimeValue.literal(Boolean.FALSE);
-                    case "null" -> RuntimeValue.literal(null);
-                    default -> parseVariable(identifier);
-                };
+                switch (identifier) {
+                    case "true":
+                        return RuntimeValue.literal(Boolean.TRUE);
+                    case "false":
+                        return RuntimeValue.literal(Boolean.FALSE);
+                    case "null":
+                        return RuntimeValue.literal(null);
+                    default:
+                        return parseVariable(identifier);
+                }
             }
             throw new IllegalArgumentException("非法字符: " + current);
         }
