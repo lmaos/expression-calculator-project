@@ -18,6 +18,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * 生成式边界测试，覆盖方法调用、空值、null 比较和异常路径。
+ */
 class ExpressionCalculatorGeneratedEdgeCaseTest {
 
     @TempDir

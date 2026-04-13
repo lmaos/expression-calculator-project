@@ -22,6 +22,7 @@ import java.util.Map;
  */
 final class IterativeExpressionEngine {
 
+    // 左括号哨兵，标记当前括号层的起点。
     private static final Operator LEFT_PAREN = Operator.unary("(", Integer.MIN_VALUE, Associativity.LEFT, operand -> operand);
 
     private IterativeExpressionEngine() {
@@ -203,6 +204,7 @@ final class IterativeExpressionEngine {
         }
 
         private void pushOperator(Operator incoming) {
+            // 先把栈顶更高优先级的运算符规约掉，再压入当前运算符。
             while (!operators.isEmpty() && operators.peek() != LEFT_PAREN
                     && shouldReduceBeforePush(operators.peek(), incoming)) {
                 applyOperator(operators.pop());
@@ -238,6 +240,7 @@ final class IterativeExpressionEngine {
         }
 
         private void applyOperator(Operator operator) {
+            // 一元运算和二元运算共用同一条规约路径，只在这里分发参数个数。
             if (operator.isUnary()) {
                 if (values.isEmpty()) {
                     throw new IllegalArgumentException("表达式格式错误");

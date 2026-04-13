@@ -10,6 +10,9 @@ import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+/**
+ * 深层嵌套专项测试，专门验证迭代实现对超深表达式的承受能力。
+ */
 class IterativeExpressionCalculatorDeepNestingTest {
 
     private ExpressionCalculator calculator;

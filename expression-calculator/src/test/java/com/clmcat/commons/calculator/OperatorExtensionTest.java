@@ -15,6 +15,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * 运算符扩展测试，验证默认注册、优先级、异常分支和注册防御。
+ */
 class OperatorExtensionTest {
 
     private final OperatorRegistry registry = OperatorRegistry.getInstance();
@@ -63,21 +66,21 @@ class OperatorExtensionTest {
     @MethodSource("calculators")
     @DisplayName("应支持幂运算与右结合")
     void shouldSupportPowerOperator(String name, ExpressionCalculator calculator) {
-        assertEquals("8", calculator.calculation("2 ^ 3", variables));
-        assertEquals("2", calculator.calculation("4 ^ 0.5", variables));
-        assertEquals("4", calculator.calculation("(-2) ^ 2", variables));
-        assertEquals("512", calculator.calculation("2 ^ 3 ^ 2", variables));
-        assertEquals("64", calculator.calculation("(2 ^ 3) ^ 2", variables));
-        assertTrue(calculator.compareCalculation("2 ^ 3 ^ 2 == 512", variables));
+        assertEquals("8", calculator.calculation("2 ** 3", variables));
+        assertEquals("2", calculator.calculation("4 ** 0.5", variables));
+        assertEquals("4", calculator.calculation("(-2) ** 2", variables));
+        assertEquals("512", calculator.calculation("2 ** 3 ** 2", variables));
+        assertEquals("64", calculator.calculation("(2 ** 3) ** 2", variables));
+        assertTrue(calculator.compareCalculation("2 ** 3 ** 2 == 512", variables));
     }
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("calculators")
     @DisplayName("应尊重扩展运算符优先级")
     void shouldRespectExtendedOperatorPrecedence(String name, ExpressionCalculator calculator) {
-        assertEquals("50", calculator.calculation("2 + 3 * 4 ^ 2", variables));
-        assertEquals("80", calculator.calculation("(2 + 3) * 4 ^ 2", variables));
-        assertTrue(calculator.compareCalculation("2 + 3 * 4 ^ 2 == 50", variables));
+        assertEquals("50", calculator.calculation("2 + 3 * 4 ** 2", variables));
+        assertEquals("80", calculator.calculation("(2 + 3) * 4 ** 2", variables));
+        assertTrue(calculator.compareCalculation("2 + 3 * 4 ** 2 == 50", variables));
     }
 
     @ParameterizedTest(name = "{0}")
@@ -91,7 +94,7 @@ class OperatorExtensionTest {
 
         IllegalArgumentException formatException = assertThrows(
                 IllegalArgumentException.class,
-                () -> calculator.calculation("2 ^ ", variables));
+                () -> calculator.calculation("2 ** ", variables));
         assertEquals("表达式格式错误", formatException.getMessage());
     }
 

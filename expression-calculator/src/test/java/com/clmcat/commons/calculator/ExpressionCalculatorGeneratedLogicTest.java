@@ -19,6 +19,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * 生成式逻辑测试，覆盖方法链、布尔短路和特殊类型的求值行为。
+ */
 class ExpressionCalculatorGeneratedLogicTest {
 
     @TempDir

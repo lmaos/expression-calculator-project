@@ -9,8 +9,14 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+/**
+ * 运算符注册中心，统一维护默认运算符与扩展运算符。
+ *
+ * <p>匹配时按符号长度优先，避免 `>>>`、`<<`、`>=` 这类前缀冲突。
+ */
 public final class OperatorRegistry {
 
+    // 优先级从低到高依次为：等号、位或、位异或、位与、关系、移位、加减、乘除、幂、一元。
     private static final int PRECEDENCE_EQUALITY = 1;
     private static final int PRECEDENCE_BITWISE_OR = 2;
     private static final int PRECEDENCE_BITWISE_XOR = 3;
@@ -22,6 +28,7 @@ public final class OperatorRegistry {
     private static final int PRECEDENCE_POWER = 9;
     private static final int PRECEDENCE_UNARY = 10;
 
+    // 长符号优先，避免短前缀先匹配到错误运算符。
     private static final Comparator<Operator> OPERATOR_ORDER = Comparator
             .comparingInt((Operator operator) -> operator.symbol().length())
             .reversed()
@@ -94,6 +101,7 @@ public final class OperatorRegistry {
         registerDefaults();
     }
 
+    /** 注册当前项目支持的所有默认运算符。 */
     private void registerDefaults() {
         registerUnaryInternal("+", PRECEDENCE_UNARY, Associativity.RIGHT, ExpressionRuntimeSupport::positive);
         registerUnaryInternal("-", PRECEDENCE_UNARY, Associativity.RIGHT, ExpressionRuntimeSupport::negate);
@@ -104,13 +112,13 @@ public final class OperatorRegistry {
         registerBinaryInternal("%", PRECEDENCE_MULTIPLICATIVE, Associativity.LEFT, ExpressionRuntimeSupport::remainder);
         registerBinaryInternal("+", PRECEDENCE_ADDITIVE, Associativity.LEFT, ExpressionRuntimeSupport::add);
         registerBinaryInternal("-", PRECEDENCE_ADDITIVE, Associativity.LEFT, ExpressionRuntimeSupport::subtract);
-        registerBinaryInternal("^", PRECEDENCE_POWER, Associativity.RIGHT, ExpressionRuntimeSupport::power);
+        registerBinaryInternal("**", PRECEDENCE_POWER, Associativity.RIGHT, ExpressionRuntimeSupport::power);
         registerBinaryInternal("<<", PRECEDENCE_SHIFT, Associativity.LEFT, ExpressionRuntimeSupport::shiftLeft);
         registerBinaryInternal(">>", PRECEDENCE_SHIFT, Associativity.LEFT, ExpressionRuntimeSupport::shiftRight);
         registerBinaryInternal(">>>", PRECEDENCE_SHIFT, Associativity.LEFT, ExpressionRuntimeSupport::unsignedShiftRight);
         registerBinaryInternal("<<<", PRECEDENCE_SHIFT, Associativity.LEFT, ExpressionRuntimeSupport::unsignedShiftLeft);
         registerBinaryInternal("&", PRECEDENCE_BITWISE_AND, Associativity.LEFT, ExpressionRuntimeSupport::bitwiseAnd);
-        registerBinaryInternal("xor", PRECEDENCE_BITWISE_XOR, Associativity.LEFT, ExpressionRuntimeSupport::bitwiseXor);
+        registerBinaryInternal("^", PRECEDENCE_BITWISE_XOR, Associativity.LEFT, ExpressionRuntimeSupport::bitwiseXor);
         registerBinaryInternal("|", PRECEDENCE_BITWISE_OR, Associativity.LEFT, ExpressionRuntimeSupport::bitwiseOr);
 
         registerBinaryInternal(">=", PRECEDENCE_RELATIONAL, Associativity.LEFT, comparison(">="));

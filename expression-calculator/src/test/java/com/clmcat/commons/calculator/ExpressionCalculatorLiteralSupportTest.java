@@ -11,6 +11,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * 字面量支持测试，覆盖字符串、字符和带引号文本的比较/方法参数场景。
+ */
 class ExpressionCalculatorLiteralSupportTest {
 
     private Map<String, Object> variables;

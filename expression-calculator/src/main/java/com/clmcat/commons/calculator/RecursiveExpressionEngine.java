@@ -4,6 +4,11 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+/**
+ * 递归版表达式引擎。
+ *
+ * <p>它保留语法层的直观结构，同时把值表达式的优先级解析交给运算符注册表。
+ */
 final class RecursiveExpressionEngine {
 
     private RecursiveExpressionEngine() {
@@ -29,10 +34,12 @@ final class RecursiveExpressionEngine {
         return node.evaluate();
     }
 
+    // AST 节点：每个节点只负责自己的求值。
     private interface Node {
         RuntimeValue evaluate();
     }
 
+    // 递归下降解析器，负责把文本拆成 AST。
     private static final class Parser {
         private final String text;
         private final Map<String, Object> variables;
@@ -88,7 +95,7 @@ final class RecursiveExpressionEngine {
          * 1. 前缀位置读取一元运算符或 primary
          * 2. 中缀位置按“当前最小优先级”继续吃掉可接受的二元运算符
          *
-         * <p>这样新增 `%`、`^` 等运算符时，只需要注册，不需要再补新的 parseXxx 层。
+         * <p>这样新增 `%`、`**`、`^` 等运算符时，只需要注册，不需要再补新的 parseXxx 层。
          */
         private Node parseValueExpression(int minimumPrecedence) {
             Node left = parsePrefixExpression();
@@ -237,6 +244,7 @@ final class RecursiveExpressionEngine {
         }
     }
 
+    // ----- AST 节点定义 -----
     private static final class LiteralNode implements Node {
         private final Object value;
 

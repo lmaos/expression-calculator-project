@@ -21,6 +21,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * 边界回归测试，覆盖非法输入、真值规则、文件/集合/日期比较和跨实现一致性。
+ */
 class ExpressionCalculatorBoundaryRegressionTest {
 
     @TempDir

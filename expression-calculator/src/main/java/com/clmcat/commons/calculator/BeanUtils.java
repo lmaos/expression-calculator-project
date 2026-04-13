@@ -9,12 +9,14 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
- * Bean 操作
+ * 反射工具：收集 public 方法并按实参与形参做宽松匹配。
  */
 public class BeanUtils {
 
+    /** 缓存每个类扫描到的 public 方法，避免重复反射。 */
     private final static Map<Class<?>, Map<String, List<Method>>> methodCache = new ConcurrentHashMap<>();
 
+    /** 基本类型与包装类的映射，用于宽松重载匹配。 */
     private final static Map<Class<?>, Class<?>> primitiveWrapperMap = new HashMap<>();
     static {
         primitiveWrapperMap.put(boolean.class, Boolean.class);
@@ -27,7 +29,8 @@ public class BeanUtils {
         primitiveWrapperMap.put(short.class, Short.class);
     }
     /**
-     * 获取当前类下面所有方法。
+     * 获取当前类及父类链上所有可调用的 public 实例方法。
+     *
      * @param clazz
      * @return 返回当前类下面public方法
      */
@@ -38,6 +41,7 @@ public class BeanUtils {
     private static Map<String, List<Method>> collectPublicMethods(Class<?> clazz) {
         Map<String, List<Method>> map = new HashMap<>();
         Class<?> current = clazz;
+        // 逐层向上扫描，保留所有可见的实例方法，供后续重载匹配使用。
         while (current != null && current != Object.class) {
             Method[] methods = current.getDeclaredMethods();
             for (Method method : methods) {

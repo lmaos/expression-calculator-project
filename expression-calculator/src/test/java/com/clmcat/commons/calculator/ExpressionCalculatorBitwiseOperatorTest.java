@@ -13,6 +13,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * 位运算专项测试，覆盖默认位运算、优先级、无符号右移和非法输入。
+ */
 class ExpressionCalculatorBitwiseOperatorTest {
 
     private Map<String, Object> variables;
@@ -39,7 +42,7 @@ class ExpressionCalculatorBitwiseOperatorTest {
     void shouldSupportDefaultBitwiseOperators(String name, ExpressionCalculator calculator) {
         assertEquals("8", calculator.calculation("a & b", variables));
         assertEquals("14", calculator.calculation("a | b", variables));
-        assertEquals("6", calculator.calculation("a xor b", variables));
+        assertEquals("6", calculator.calculation("a ^ b", variables));
         assertEquals("-11", calculator.calculation("~a", variables));
         assertEquals("40", calculator.calculation("a << 2", variables));
         assertEquals("2", calculator.calculation("a >> 2", variables));
@@ -54,7 +57,7 @@ class ExpressionCalculatorBitwiseOperatorTest {
         assertEquals("9223372036854775804", calculator.calculation("negative >>> 1", variables));
         assertTrue(calculator.compareCalculation("(a & b) == 8", variables));
         assertTrue(calculator.compareCalculation("(a | b) == 14", variables));
-        assertTrue(calculator.compareCalculation("(a xor b) == 6", variables));
+        assertTrue(calculator.compareCalculation("(a ^ b) == 6", variables));
         assertTrue(calculator.compareCalculation("(negative >>> 1) > 0", variables));
     }
 
@@ -65,7 +68,7 @@ class ExpressionCalculatorBitwiseOperatorTest {
         assertEquals("12", calculator.calculation("2 + 1 << 2", variables));
         assertEquals("8", calculator.calculation("1 << 2 + 1", variables));
         assertEquals("8", calculator.calculation("8 | 2 & 1", variables));
-        assertEquals("13", calculator.calculation("8 | 4 xor 1", variables));
+        assertEquals("13", calculator.calculation("8 | 4 ^ 1", variables));
         assertTrue(calculator.compareCalculation("1 | 2 == 3", variables));
     }
 
@@ -75,6 +78,6 @@ class ExpressionCalculatorBitwiseOperatorTest {
     void shouldRejectNonIntegralBitwiseOperands(String name, ExpressionCalculator calculator) {
         assertThrows(IllegalArgumentException.class, () -> calculator.calculation("decimal << 1", variables));
         assertThrows(IllegalArgumentException.class, () -> calculator.calculation("enabled & 1", variables));
-        assertThrows(IllegalArgumentException.class, () -> calculator.calculation("1 xor 1.5", variables));
+        assertThrows(IllegalArgumentException.class, () -> calculator.calculation("1 ^ 1.5", variables));
     }
 }

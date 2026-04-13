@@ -13,6 +13,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * 深度限制与布尔防御测试，验证迭代实现不会在超深输入下栈溢出。
+ */
 class ExpressionCalculatorDepthLimitAndBooleanDefenseTest {
 
     private Map<String, Object> variables;

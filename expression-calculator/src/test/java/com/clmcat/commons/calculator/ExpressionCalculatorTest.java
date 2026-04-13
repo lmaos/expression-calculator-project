@@ -14,6 +14,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * 主回归测试套件，覆盖两个实现的基础算术、比较、逻辑和默认运算符行为。
+ */
 class ExpressionCalculatorTest {
 
     private Map<String, Object> variables;
@@ -111,9 +114,9 @@ class ExpressionCalculatorTest {
     @MethodSource("calculators")
     @DisplayName("应支持默认幂运算与取模运算")
     void shouldSupportDefaultPowerAndModuloOperators(String name, ExpressionCalculator calculator) {
-        assertEquals("8", calculator.calculation("2 ^ 3", variables));
-        assertEquals("64", calculator.calculation("(2 ^ 3) ^ 2", variables));
-        assertEquals("512", calculator.calculation("2 ^ 3 ^ 2", variables));
+        assertEquals("8", calculator.calculation("2 ** 3", variables));
+        assertEquals("64", calculator.calculation("(2 ** 3) ** 2", variables));
+        assertEquals("512", calculator.calculation("2 ** 3 ** 2", variables));
         assertEquals("1", calculator.calculation("10 % 3", variables));
     }
 

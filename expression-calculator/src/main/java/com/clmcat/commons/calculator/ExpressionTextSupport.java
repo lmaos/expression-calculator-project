@@ -5,6 +5,9 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
+/**
+ * 表达式文本工具类，负责识别标识符、字面量和结构边界。
+ */
 final class ExpressionTextSupport {
 
     private ExpressionTextSupport() {
@@ -22,6 +25,7 @@ final class ExpressionTextSupport {
         return current == '"' || current == '\'';
     }
 
+    // ----- 标识符与数字字面量 -----
     static ParsedToken<String> parseIdentifier(String text, int start) {
         if (start >= text.length()) {
             throw new IllegalArgumentException("表达式格式错误");
@@ -98,6 +102,7 @@ final class ExpressionTextSupport {
         return new ParsedToken<>(value, index);
     }
 
+    // ----- 字符串与字符字面量 -----
     static ParsedToken<String> parseStringLiteral(String text, int start) {
         if (start >= text.length() || text.charAt(start) != '"') {
             throw new IllegalArgumentException("字符串字面量格式错误");
@@ -151,6 +156,7 @@ final class ExpressionTextSupport {
         return new ParsedToken<>(value, index + 1);
     }
 
+    // ----- 结构边界扫描：跳过引号、括号和参数分隔 -----
     static int skipQuotedLiteral(String text, int start) {
         if (start >= text.length() || !isQuote(text.charAt(start))) {
             throw new IllegalArgumentException("表达式格式错误");
@@ -248,6 +254,7 @@ final class ExpressionTextSupport {
         }
     }
 
+    /** 解析后的单个 token，包含值和下一个读取位置。 */
     static final class ParsedToken<T> {
         private final T value;
         private final int nextIndex;

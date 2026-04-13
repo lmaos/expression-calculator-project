@@ -11,6 +11,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 
+/**
+ * 字面量边界测试，确保引号、转义和引号内结构符号不会误伤解析。
+ */
 class ExpressionCalculatorLiteralBoundaryTest {
 
     private Map<String, Object> variables;

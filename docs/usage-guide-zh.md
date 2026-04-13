@@ -44,8 +44,8 @@ ExpressionCalculator calc = new IterativeExpressionCalculator(100); // 最大层
 ## 4. 支持的表达式类型
 
 ### 4.1 算术表达式（`calculation`）
-- 运算符：`+ - * / % ^`
-- 位运算：`~ << >> >>> <<< & | xor`
+- 运算符：`+ - * / % **`
+- 位运算：`~ << >> >>> <<< & | ^`
 - 括号：`()`
 - 一元正负号：`+x -x`
 - 字符串字面量 `"text"`、字符字面量 `'A'`
@@ -60,7 +60,7 @@ String result = calc.calculation("price + discount", vars); // "15"
 
 - `+` 遇到非数值字符串/字符时按拼接处理。
 - 若两侧仍都能识别为数字，则保持数值加法语义。
-- `^` 表示幂运算，不表示异或；异或关键字为 `xor`
+- `**` 表示幂运算，`^` 表示位异或。
 - 位运算只接受整数输入，按 64 位整数语义计算；`<<<` 是 `<<` 的对称别名
 
 ### 4.2 比较与逻辑表达式（`compareCalculation`）
@@ -70,8 +70,8 @@ String result = calc.calculation("price + discount", vars); // "15"
 - 字符串/字符字面量参与比较
 - 缺失变量在与 `null` 做 `==` / `!=` 比较时按 `null` 参与判断
 - 变量直接参与真值判断（见下）
-- 比较两侧可以继续包含 `%`、`^` 与位运算子表达式
-- 默认内置已包含 `%`、`^`、`~`、`<<`、`>>`、`>>>`、`<<<`、`&`、`|`、`xor`
+- 比较两侧可以继续包含 `%`、`**` 与位运算子表达式
+- 默认内置已包含 `%`、`**`、`~`、`<<`、`>>`、`>>>`、`<<<`、`&`、`|`、`^`
 
 说明：
 
@@ -82,7 +82,7 @@ String result = calc.calculation("price + discount", vars); // "15"
 ```java
 Map<String, Object> vars = Map.of("enabled", true, "count", 5);
 boolean ok = calc.compareCalculation("enabled && count > 0", vars); // true
-boolean bitwiseOk = calc.compareCalculation("(10 xor 12) == 6", vars); // true
+boolean bitwiseOk = calc.compareCalculation("(10 ^ 12) == 6", vars); // true
 ```
 
 ## 5. 支持的变量类型（布尔条件）
@@ -117,9 +117,9 @@ calc.calculation("\"a,b\".replace(\",\", \";\")", vars); // "a;b"
 
 ```java
 calc.calculation("10 & 12", vars);      // "8"
-calc.calculation("2 ^ 3", vars);        // "8"
+calc.calculation("2 ** 3", vars);       // "8"
 calc.calculation("3 <<< 2", vars);      // "12"
-calc.compareCalculation("(10 xor 12) == 6", vars); // true
+calc.compareCalculation("(10 ^ 12) == 6", vars); // true
 ```
 
 ## 7. 计算边界与防御能力

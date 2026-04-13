@@ -258,6 +258,7 @@ final class IterativeBooleanExpressionEngine {
     }
 
     private static final class Frame {
+        // 每个 Frame 都表示一个布尔分组的局部状态机。
         private Boolean currentAndValue;
         private Boolean accumulatedOrValue;
         private PendingOperator pendingOperator = PendingOperator.NONE;
@@ -328,6 +329,7 @@ final class IterativeBooleanExpressionEngine {
         }
     }
 
+    // 当前 Frame 期望完成的运算符状态。
     private enum PendingOperator {
         NONE,
         AND,

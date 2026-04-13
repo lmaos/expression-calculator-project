@@ -56,7 +56,7 @@ ExpressionCalculator recursive = new RecursiveExpressionCalculator(100);
 支持：
 
 - 算术运算：`+ - * / % ^`
-- 位运算：`~ << >> >>> <<< & | xor`
+- 位运算：`~ << >> >>> <<< & | ^`
 - 括号 `()`
 - 一元正负号 `+x -x`
 - 字符串字面量 `"text"`、字符字面量 `'A'`
@@ -81,7 +81,7 @@ String result = calculator.calculation("a + b * (c + 2)", variables);
 
 - 表达式计算时，普通数字运算统一按 `BigDecimal` 语义处理
 - `+` 遇到非数值字符串/字符时按拼接处理；两侧都能识别为数字时仍按数值相加
-- `^` 表示**幂运算**，不表示异或；位异或关键字为 `xor`
+- `**` 表示幂运算，`^` 表示位异或。
 - 位运算只接受整数输入，按 **64 位整数** 语义计算
 - `<<<` 是 `<<` 的 DSL 对称别名
 - 返回值会做规范化，例如：
@@ -98,8 +98,8 @@ String result = calculator.calculation("a + b * (c + 2)", variables);
 - 字符串/字符字面量参与比较
 - 缺失变量在与 `null` 做 `==` / `!=` 比较时按 `null` 参与判断
 - 变量、文件、集合、布尔值直接参与真值判断
-- 比较两侧可以继续包含 `%`、`^` 与位运算子表达式
-- 默认内置已包含 `%`、`^`、`~`、`<<`、`>>`、`>>>`、`<<<`、`&`、`|`、`xor`
+- 比较两侧可以继续包含 `%`、`**` 与位运算子表达式
+- 默认内置已包含 `%`、`**`、`~`、`<<`、`>>`、`>>>`、`<<<`、`&`、`|`、`^`
 
 说明：
 
@@ -123,7 +123,7 @@ boolean r1 = calculator.compareCalculation("x + y > a + 1", variables);
 boolean r2 = calculator.compareCalculation("x > 0 && (y < 20 || a == 10)", variables);
 // true
 
-boolean r3 = calculator.compareCalculation("(10 xor 12) == 6", variables);
+boolean r3 = calculator.compareCalculation("(10 ^ 12) == 6", variables);
 // true
 ```
 

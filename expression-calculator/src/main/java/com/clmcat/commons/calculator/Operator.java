@@ -4,6 +4,9 @@ import java.util.Objects;
 import java.util.function.BiFunction;
 import java.util.function.Function;
 
+/**
+ * 单个运算符定义，封装符号、优先级、结合性和执行函数。
+ */
 public final class Operator {
 
     private final String symbol;
@@ -68,6 +71,9 @@ public final class Operator {
         return Objects.requireNonNull(unaryFunction.apply(operand), "operator result");
     }
 
+    /**
+     * 只做“当前位置能否匹配”判断，不在这里做空白跳过或语法恢复。
+     */
     boolean matches(String text, int start) {
         if (start < 0 || start > text.length() || !text.startsWith(symbol, start)) {
             return false;

@@ -11,6 +11,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+/**
+ * 表达式运行时语义中心，统一处理数值转换、算术、位运算、比较、真值和方法调用。
+ */
 final class ExpressionRuntimeSupport {
 
     private static final MathContext DIVISION_CONTEXT = MathContext.DECIMAL128;
@@ -18,6 +21,7 @@ final class ExpressionRuntimeSupport {
     private ExpressionRuntimeSupport() {
     }
 
+    // ----- 基础校验与深度限制 -----
     static String requireText(String text) {
         if (text == null || text.trim().isEmpty()) {
             throw new IllegalArgumentException("表达式不能为空");
@@ -49,6 +53,7 @@ final class ExpressionRuntimeSupport {
         }
     }
 
+    // ----- 数值归一化与基础算术 -----
     static BigDecimal toBigDecimal(RuntimeValue value) {
         ensurePresent(value);
         Object raw = value.raw();
@@ -108,6 +113,7 @@ final class ExpressionRuntimeSupport {
         return RuntimeValue.computed(toBigDecimal(left).divide(divisor, DIVISION_CONTEXT));
     }
 
+    // ----- 扩展算术与位运算 -----
     static RuntimeValue remainder(RuntimeValue left, RuntimeValue right) {
         ensurePresent(left);
         ensurePresent(right);
@@ -199,6 +205,7 @@ final class ExpressionRuntimeSupport {
         return value;
     }
 
+    // ----- 布尔真值与比较 -----
     static boolean toStandaloneBoolean(RuntimeValue value) {
         ensurePresent(value);
         Object raw = value.raw();
@@ -337,6 +344,7 @@ final class ExpressionRuntimeSupport {
         return false;
     }
 
+    // ----- 方法调用与重载匹配 -----
     static RuntimeValue invokeMethod(RuntimeValue receiverValue, String methodName, List<RuntimeValue> arguments) {
         ensurePresent(receiverValue);
         Object receiver = receiverValue.raw();
@@ -462,6 +470,7 @@ final class ExpressionRuntimeSupport {
         return type;
     }
 
+    // ----- 结果格式化 -----
     static String formatForCalculation(RuntimeValue value) {
         ensurePresent(value);
         Object raw = value.raw();

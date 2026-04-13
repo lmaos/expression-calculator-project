@@ -44,8 +44,8 @@ Exceeding the limit throws: `Expression depth limit exceeded: 100`
 ## 4. Supported Expression Types
 
 ### 4.1 Arithmetic Expressions (`calculation`)
-- Operators: `+ - * / % ^`
-- Bitwise operators: `~ << >> >>> <<< & | xor`
+- Operators: `+ - * / % **`
+- Bitwise operators: `~ << >> >>> <<< & | ^`
 - Parentheses: `()`
 - Unary plus/minus: `+x -x`
 - String literals `"text"` and character literals `'A'`
@@ -60,7 +60,7 @@ String result = calc.calculation("price + discount", vars); // "15"
 
 - `+` performs string concatenation when a non-numeric string/character is involved.
 - If both operands can still be interpreted as numbers, addition keeps numeric semantics.
-- `^` means power, not xor; the default bitwise xor keyword is `xor`.
+- `**` means power, and `^` means bitwise xor.
 - Bitwise operators accept only integral operands and use 64-bit integer semantics. `<<<` is a DSL alias of `<<`.
 
 ### 4.2 Comparison & Logical Expressions (`compareCalculation`)
@@ -71,7 +71,7 @@ String result = calc.calculation("price + discount", vars); // "15"
 - Missing variables are treated as `null` only for `== null` / `!= null` checks
 - Direct variable truthiness (see below)
 - Arithmetic and bitwise subexpressions can appear on either side of comparisons
-- Built-in defaults already include `%`, `^`, `~`, `<<`, `>>`, `>>>`, `<<<`, `&`, `|`, and `xor`
+- Built-in defaults already include `%`, `**`, `~`, `<<`, `>>`, `>>>`, `<<<`, `&`, `|`, and `^`
 
 Notes:
 
@@ -82,7 +82,7 @@ Notes:
 ```java
 Map<String, Object> vars = Map.of("enabled", true, "count", 5);
 boolean ok = calc.compareCalculation("enabled && count > 0", vars); // true
-boolean bitwiseOk = calc.compareCalculation("(10 xor 12) == 6", vars); // true
+boolean bitwiseOk = calc.compareCalculation("(10 ^ 12) == 6", vars); // true
 ```
 
 ## 5. Supported Variable Types for Boolean Conditions
@@ -117,9 +117,9 @@ calc.calculation("\"a,b\".replace(\",\", \";\")", vars); // "a;b"
 
 ```java
 calc.calculation("10 & 12", vars);      // "8"
-calc.calculation("2 ^ 3", vars);        // "8"
+calc.calculation("2 ** 3", vars);       // "8"
 calc.calculation("3 <<< 2", vars);      // "12"
-calc.compareCalculation("(10 xor 12) == 6", vars); // true
+calc.compareCalculation("(10 ^ 12) == 6", vars); // true
 ```
 
 ## 7. Calculation Boundaries & Defensive Features
