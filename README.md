@@ -64,7 +64,7 @@ mvn clean install
 - `**` 是幂运算符，`^` 是位异或运算符
 - 旧的 `xor` 关键字不再作为默认符号
 - `<<<` 作为 DSL 中的对称别名保留，语义与 `<<` 一致
-- 自定义运算符注册说明见 `expression-calculator/README_EXTENSIBILITY.md`
+- 自定义运算符注册说明见 [README_EXTENSIBILITY.md](expression-calculator/README_EXTENSIBILITY.md)
 - 其他参考: docs/usage-guide.md
 
 [usage-guide-zh.md](docs/usage-guide-zh.md)
