@@ -1,7 +1,6 @@
 package com.clmcat.commons.calculator;
 
 import com.clmcat.commons.calculator.ExpressionRuntimeSupport.RuntimeValue;
-import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -157,9 +156,13 @@ final class RecursiveExpressionEngine {
                     throw new IllegalArgumentException("括号不匹配");
                 }
                 node = inner;
+            } else if (current == '"') {
+                node = new LiteralNode(parseStringLiteral());
+            } else if (current == '\'') {
+                node = new LiteralNode(parseCharacterLiteral());
             } else if (Character.isDigit(current) || current == '.') {
                 node = new LiteralNode(parseNumberLiteral());
-            } else if (Character.isLetter(current) || current == '_') {
+            } else if (ExpressionTextSupport.isIdentifierStart(current)) {
                 String identifier = parseIdentifier();
                 if ("true".equals(identifier)) {
                     node = new LiteralNode(Boolean.TRUE);
@@ -204,96 +207,36 @@ final class RecursiveExpressionEngine {
         }
 
         private Object parseNumberLiteral() {
-            int start = position;
-            boolean hasDigit = false;
-            boolean hasDot = false;
-            while (!isEnd()) {
-                char current = currentChar();
-                if (Character.isDigit(current)) {
-                    hasDigit = true;
-                    position++;
-                } else if (current == '.') {
-                    if (hasDot) {
-                        throw new IllegalArgumentException("数字格式错误");
-                    }
-                    hasDot = true;
-                    position++;
-                } else {
-                    break;
-                }
-            }
-            if (!hasDigit) {
-                throw new IllegalArgumentException("数字格式错误");
-            }
-            String numberText = text.substring(start, position);
-            if (".".equals(numberText)) {
-                throw new IllegalArgumentException("数字格式错误");
-            }
-            // 这里支持题目要求的数字后缀：
-            // 123L / 1.5f / 1.5d / 1.5m
-            if (!isEnd()) {
-                char suffix = currentChar();
-                switch (suffix) {
-                    case 'L':
-                    case 'l':
-                        position++;
-                        return Long.valueOf(numberText);
-                    case 'F':
-                    case 'f':
-                        position++;
-                        return Float.valueOf(numberText);
-                    case 'D':
-                    case 'd':
-                        position++;
-                        return Double.valueOf(numberText);
-                    case 'M':
-                    case 'm':
-                        position++;
-                        return new BigDecimal(numberText);
-                    default:
-                        break;
-                }
-            }
-            if (hasDot) {
-                return Double.valueOf(numberText);
-            }
-            try {
-                return Integer.valueOf(numberText);
-            } catch (NumberFormatException exception) {
-                return Long.valueOf(numberText);
-            }
+            ExpressionTextSupport.ParsedToken<Object> token = ExpressionTextSupport.parseNumberLiteral(text, position);
+            position = token.nextIndex();
+            return token.value();
+        }
+
+        private String parseStringLiteral() {
+            ExpressionTextSupport.ParsedToken<String> token = ExpressionTextSupport.parseStringLiteral(text, position);
+            position = token.nextIndex();
+            return token.value();
+        }
+
+        private Character parseCharacterLiteral() {
+            ExpressionTextSupport.ParsedToken<Character> token = ExpressionTextSupport.parseCharacterLiteral(text, position);
+            position = token.nextIndex();
+            return token.value();
         }
 
         private String readComparisonOperator() {
-            String[] operators = {">=", "<=", "==", "!=", ">", "<"};
-            for (String operator : operators) {
-                if (match(operator)) {
-                    return operator;
-                }
+            String operator = ExpressionTextSupport.readComparisonOperator(text, position);
+            if (operator != null) {
+                position += operator.length();
             }
-            return null;
+            return operator;
         }
 
         private String parseIdentifier() {
             skipWhitespace();
-            if (isEnd()) {
-                throw new IllegalArgumentException("表达式格式错误");
-            }
-            char current = currentChar();
-            if (!Character.isLetter(current) && current != '_') {
-                throw new IllegalArgumentException("非法字符: " + current);
-            }
-            int start = position;
-            position++;
-            while (!isEnd()) {
-                current = currentChar();
-                if (Character.isLetterOrDigit(current) || current == '_') {
-                    position++;
-                } else {
-                    break;
-                }
-            }
-            return text.substring(start, position);
+            ExpressionTextSupport.ParsedToken<String> token = ExpressionTextSupport.parseIdentifier(text, position);
+            position = token.nextIndex();
+            return token.value();
         }
 
         private boolean match(String expected) {

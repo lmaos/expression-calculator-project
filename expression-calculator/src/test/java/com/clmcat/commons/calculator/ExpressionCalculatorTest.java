@@ -52,6 +52,20 @@ class ExpressionCalculatorTest {
 
     @ParameterizedTest(name = "{0}")
     @MethodSource("calculators")
+    @DisplayName("测试NULL变量输出")
+    void testNullVariableCalculation(String name, ExpressionCalculator calculator) {
+        assertTrue( calculator.compareCalculation("notVar == null", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    @DisplayName("测试非NULL变量判断")
+    void testNotNullVariableCalculation(String name, ExpressionCalculator calculator) {
+        assertTrue( calculator.compareCalculation("price != null", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
     @DisplayName("应支持变量和括号计算")
     void shouldCalculateExpressionWithVariablesAndParentheses(String name, ExpressionCalculator calculator) {
         assertEquals("11", calculator.calculation("a + b * (c + 2)", variables));

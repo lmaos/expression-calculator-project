@@ -1,7 +1,6 @@
 package com.clmcat.commons.calculator;
 
 import com.clmcat.commons.calculator.ExpressionRuntimeSupport.RuntimeValue;
-import java.math.BigDecimal;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Deque;
@@ -143,10 +142,16 @@ final class IterativeExpressionEngine {
                 throw new IllegalArgumentException("表达式格式错误");
             }
             char current = currentChar();
+            if (current == '"') {
+                return RuntimeValue.literal(parseStringLiteral());
+            }
+            if (current == '\'') {
+                return RuntimeValue.literal(parseCharacterLiteral());
+            }
             if (Character.isDigit(current) || current == '.') {
                 return RuntimeValue.literal(parseNumberLiteral());
             }
-            if (Character.isLetter(current) || current == '_') {
+            if (ExpressionTextSupport.isIdentifierStart(current)) {
                 String identifier = parseIdentifier();
                 return switch (identifier) {
                     case "true" -> RuntimeValue.literal(Boolean.TRUE);
@@ -200,7 +205,7 @@ final class IterativeExpressionEngine {
             if (argumentText.isEmpty()) {
                 return java.util.Collections.emptyList();
             }
-            List<String> parts = splitArguments(argumentText);
+            List<String> parts = ExpressionTextSupport.splitArguments(argumentText);
             List<RuntimeValue> arguments = new ArrayList<>(parts.size());
             for (String part : parts) {
                 arguments.add(IterativeExpressionEngine.evaluateValue(part, variables));
@@ -208,140 +213,33 @@ final class IterativeExpressionEngine {
             return arguments;
         }
 
-        /**
-         * 只在“当前方法调用这一层”拆分逗号：
-         * <pre>
-         * add(1, max(2, 3), x + y)
-         *      ^ 这里可切
-         *         ^^^^^^^^ 这里不能切，因为它在内部括号里
-         * </pre>
-         */
-        private List<String> splitArguments(String argumentText) {
-            List<String> arguments = new ArrayList<>();
-            int level = 0;
-            int start = 0;
-            for (int index = 0; index < argumentText.length(); index++) {
-                char current = argumentText.charAt(index);
-                if (current == '(') {
-                    level++;
-                } else if (current == ')') {
-                    level--;
-                    if (level < 0) {
-                        throw new IllegalArgumentException("括号不匹配");
-                    }
-                } else if (current == ',' && level == 0) {
-                    arguments.add(argumentText.substring(start, index).trim());
-                    start = index + 1;
-                }
-            }
-            if (level != 0) {
-                throw new IllegalArgumentException("括号不匹配");
-            }
-            arguments.add(argumentText.substring(start).trim());
-            return arguments;
-        }
-
         private int findClosingParenthesis(int openIndex) {
-            int level = 0;
-            for (int index = openIndex; index < text.length(); index++) {
-                char current = text.charAt(index);
-                if (current == '(') {
-                    level++;
-                } else if (current == ')') {
-                    level--;
-                    if (level == 0) {
-                        return index;
-                    }
-                    if (level < 0) {
-                        throw new IllegalArgumentException("括号不匹配");
-                    }
-                }
-            }
-            throw new IllegalArgumentException("括号不匹配");
+            return ExpressionTextSupport.findMatchingParenthesis(text, openIndex);
         }
 
         private Object parseNumberLiteral() {
-            int start = position;
-            boolean hasDigit = false;
-            boolean hasDot = false;
-            while (!isEnd()) {
-                char current = currentChar();
-                if (Character.isDigit(current)) {
-                    hasDigit = true;
-                    position++;
-                } else if (current == '.') {
-                    if (hasDot) {
-                        throw new IllegalArgumentException("数字格式错误");
-                    }
-                    hasDot = true;
-                    position++;
-                } else {
-                    break;
-                }
-            }
-            if (!hasDigit) {
-                throw new IllegalArgumentException("数字格式错误");
-            }
+            ExpressionTextSupport.ParsedToken<Object> token = ExpressionTextSupport.parseNumberLiteral(text, position);
+            position = token.nextIndex();
+            return token.value();
+        }
 
-            String numberText = text.substring(start, position);
-            if (".".equals(numberText)) {
-                throw new IllegalArgumentException("数字格式错误");
-            }
+        private String parseStringLiteral() {
+            ExpressionTextSupport.ParsedToken<String> token = ExpressionTextSupport.parseStringLiteral(text, position);
+            position = token.nextIndex();
+            return token.value();
+        }
 
-            if (!isEnd()) {
-                char suffix = currentChar();
-                switch (suffix) {
-                    case 'L':
-                    case 'l':
-                        position++;
-                        return Long.valueOf(numberText);
-                    case 'F':
-                    case 'f':
-                        position++;
-                        return Float.valueOf(numberText);
-                    case 'D':
-                    case 'd':
-                        position++;
-                        return Double.valueOf(numberText);
-                    case 'M':
-                    case 'm':
-                        position++;
-                        return new BigDecimal(numberText);
-                    default:
-                        break;
-                }
-            }
-
-            if (hasDot) {
-                return Double.valueOf(numberText);
-            }
-            try {
-                return Integer.valueOf(numberText);
-            } catch (NumberFormatException exception) {
-                return Long.valueOf(numberText);
-            }
+        private Character parseCharacterLiteral() {
+            ExpressionTextSupport.ParsedToken<Character> token = ExpressionTextSupport.parseCharacterLiteral(text, position);
+            position = token.nextIndex();
+            return token.value();
         }
 
         private String parseIdentifier() {
             skipWhitespace();
-            if (isEnd()) {
-                throw new IllegalArgumentException("表达式格式错误");
-            }
-            char current = currentChar();
-            if (!Character.isLetter(current) && current != '_') {
-                throw new IllegalArgumentException("非法字符: " + current);
-            }
-            int start = position;
-            position++;
-            while (!isEnd()) {
-                current = currentChar();
-                if (Character.isLetterOrDigit(current) || current == '_') {
-                    position++;
-                } else {
-                    break;
-                }
-            }
-            return text.substring(start, position);
+            ExpressionTextSupport.ParsedToken<String> token = ExpressionTextSupport.parseIdentifier(text, position);
+            position = token.nextIndex();
+            return token.value();
         }
 
         /**

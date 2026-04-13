@@ -21,7 +21,7 @@
 Maven `pom.xml`：
 ```xml
 <dependency>
-  <groupId>com.example</groupId>
+  <groupId>com.clmcat.commons</groupId>
   <artifactId>expression-calculator</artifactId>
   <version>YOUR_VERSION</version>
 </dependency>
@@ -47,6 +47,7 @@ ExpressionCalculator calc = new IterativeExpressionCalculator(100); // 最大层
 - 运算符：`+ - * /`
 - 括号：`()`
 - 一元正负号：`+x -x`
+- 字符串字面量 `"text"`、字符字面量 `'A'`
 - 变量引用
 - 方法调用（如 `str.length()`）
 
@@ -56,10 +57,14 @@ Map<String, Object> vars = Map.of("price", 12.5, "discount", 2.5);
 String result = calc.calculation("price + discount", vars); // "15"
 ```
 
+- `+` 遇到非数值字符串/字符时按拼接处理。
+- 若两侧仍都能识别为数字，则保持数值加法语义。
+
 ### 4.2 比较与逻辑表达式（`compareCalculation`）
 - 比较：`== != > < >= <=`
 - 逻辑：`&& ||`
 - 括号
+- 字符串/字符字面量参与比较
 - 变量直接参与真值判断（见下）
 
 #### 示例
@@ -79,12 +84,13 @@ boolean ok = calc.compareCalculation("enabled && count > 0", vars); // true
 | Map          | 非空为 true         |
 | 数组         | 长度>0为 true       |
 
-数字/字符串需配合比较运算符使用（如 `a > 0`）。
+数字/字符串/字符需配合比较运算符使用（如 `a > 0`）。
 
 ## 6. 表达式中的方法调用
 - 支持无参、有参、链式方法调用
 - 变量中的数字会转为 `BigDecimal` 参与方法匹配
 - 直接字面量保留原类型
+- 方法参数支持字符串/字符字面量
 
 #### 示例
 ```java
@@ -92,9 +98,14 @@ vars.put("str", "Hello World");
 calc.calculation("str.length()", vars); // "11"
 ```
 
+```java
+calc.calculation("\"a,b\".replace(\",\", \";\")", vars); // "a;b"
+```
+
 ## 7. 计算边界与防御能力
 - 可配置最大表达式层级（构造器参数）
 - 防御括号不匹配、非法数字、缺失变量、除零、非法方法调用等
+- 引号内的 `,`、`&&`、`||`、括号不会被误判为结构符号
 - 迭代实现可防止深度递归导致栈溢出
 
 ## 8. 异常情况

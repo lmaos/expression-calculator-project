@@ -32,30 +32,30 @@ public class BeanUtils {
      * @return 返回当前类下面public方法
      */
     public static Map<String, List<Method>> findPublicMethods(Class<?> clazz) {
-        Map<String, List<Method>> map = methodCache.get(clazz);
-        if (map == null) {
-            map = new HashMap<>();
-            Class<?> c = clazz;
-            while (c != null && c != Object.class) {
-                Method[] methods = c.getDeclaredMethods();
-                for (Method m : methods) {
-                    // 不查询 static 方法 不查询抽象
-                    int modifiers = m.getModifiers();
-                    if (Modifier.isPublic(modifiers) &&
-                            !Modifier.isStatic(modifiers)
-                            && !Modifier.isAbstract(modifiers)
-                            && !Modifier.isNative(modifiers)) {
-                            String methodName = m.getName();
-                            List<Method> methodList = map.get(methodName);
-                            if (methodList == null) {
-                                methodList = new ArrayList<>();
-                                map.put(methodName, methodList);
-                            }
-                            methodList.add(m);
+        return methodCache.computeIfAbsent(clazz, BeanUtils::collectPublicMethods);
+    }
+
+    private static Map<String, List<Method>> collectPublicMethods(Class<?> clazz) {
+        Map<String, List<Method>> map = new HashMap<>();
+        Class<?> current = clazz;
+        while (current != null && current != Object.class) {
+            Method[] methods = current.getDeclaredMethods();
+            for (Method method : methods) {
+                int modifiers = method.getModifiers();
+                if (Modifier.isPublic(modifiers)
+                        && !Modifier.isStatic(modifiers)
+                        && !Modifier.isAbstract(modifiers)
+                        && !Modifier.isNative(modifiers)) {
+                    String methodName = method.getName();
+                    List<Method> methodList = map.get(methodName);
+                    if (methodList == null) {
+                        methodList = new ArrayList<>();
+                        map.put(methodName, methodList);
                     }
+                    methodList.add(method);
                 }
-                c = c.getSuperclass();
             }
+            current = current.getSuperclass();
         }
         return map;
     }

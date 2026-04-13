@@ -49,76 +49,6 @@ final class ExpressionRuntimeSupport {
         }
     }
 
-    static String stripRedundantOuterParentheses(String text) {
-        String required = requireText(text);
-        int start = 0;
-        int end = required.length() - 1;
-        while (start <= end && Character.isWhitespace(required.charAt(start))) {
-            start++;
-        }
-        while (end >= start && Character.isWhitespace(required.charAt(end))) {
-            end--;
-        }
-        if (start > end || required.charAt(start) != '(' || required.charAt(end) != ')') {
-            return required;
-        }
-
-        int openCount = 0;
-        int cursor = start;
-        while (cursor <= end && required.charAt(cursor) == '(') {
-            openCount++;
-            cursor++;
-        }
-        if (openCount == 0) {
-            return required;
-        }
-
-        int[] leadingOpenIndexes = new int[openCount];
-        for (int index = 0; index < openCount; index++) {
-            leadingOpenIndexes[index] = start + index;
-        }
-        int[] matchingCloseIndexes = new int[openCount];
-        int[] stack = new int[end - start + 1];
-        int stackSize = 0;
-        for (int index = start; index <= end; index++) {
-            char current = required.charAt(index);
-            if (current == '(') {
-                stack[stackSize++] = index;
-            } else if (current == ')') {
-                if (stackSize == 0) {
-                    throw new IllegalArgumentException("括号不匹配");
-                }
-                int openIndex = stack[--stackSize];
-                int leadingIndex = openIndex - start;
-                if (leadingIndex >= 0 && leadingIndex < openCount) {
-                    matchingCloseIndexes[leadingIndex] = index;
-                }
-            }
-        }
-        if (stackSize != 0) {
-            throw new IllegalArgumentException("括号不匹配");
-        }
-
-        /*
-         * 这里要去掉的是“完整包裹整句”的外层括号：
-         *
-         * (((expr)))  -> 可以连续剥三层
-         * (a) + (b)   -> 不能剥，因为最外层并没有完整包住整句
-         *
-         * matchingCloseIndexes[i] == end - i
-         * 这个条件可以理解成：
-         * 第 i 个最左侧 '('，正好和第 i 个最右侧 ')' 配对。
-         */
-        int removableLayers = 0;
-        while (removableLayers < openCount && matchingCloseIndexes[removableLayers] == end - removableLayers) {
-            removableLayers++;
-        }
-        if (removableLayers == 0) {
-            return required;
-        }
-        return required.substring(start + removableLayers, end - removableLayers + 1);
-    }
-
     static BigDecimal toBigDecimal(RuntimeValue value) {
         Object raw = value.raw();
         if (raw instanceof BigDecimal bigDecimal) {
@@ -150,6 +80,9 @@ final class ExpressionRuntimeSupport {
     }
 
     static RuntimeValue add(RuntimeValue left, RuntimeValue right) {
+        if (shouldConcatenate(left.raw(), right.raw())) {
+            return RuntimeValue.computed(String.valueOf(left.raw()) + String.valueOf(right.raw()));
+        }
         return RuntimeValue.computed(toBigDecimal(left).add(toBigDecimal(right)));
     }
 
@@ -227,7 +160,7 @@ final class ExpressionRuntimeSupport {
         if (raw.getClass().isArray()) {
             return Array.getLength(raw) > 0;
         }
-        if (raw instanceof Number || raw instanceof CharSequence) {
+        if (raw instanceof Number || raw instanceof CharSequence || raw instanceof Character) {
             throw new IllegalArgumentException("比较表达式缺少比较运算符");
         }
         return true;
@@ -274,6 +207,15 @@ final class ExpressionRuntimeSupport {
             return toBigDecimal(RuntimeValue.computed(left)).compareTo(toBigDecimal(RuntimeValue.computed(right))) == 0;
         }
         return Objects.equals(left, right);
+    }
+
+    private static boolean shouldConcatenate(Object left, Object right) {
+        return (isStringLike(left) || isStringLike(right))
+                && !(isNumericCandidate(left) && isNumericCandidate(right));
+    }
+
+    private static boolean isStringLike(Object value) {
+        return value instanceof CharSequence || value instanceof Character;
     }
 
     private static boolean compareByOperator(int result, String operator) {

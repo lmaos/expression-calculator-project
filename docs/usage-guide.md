@@ -58,6 +58,7 @@ ExpressionCalculator recursive = new RecursiveExpressionCalculator(100);
 - `+ - * /`
 - 括号 `()`
 - 一元正负号 `+x -x`
+- 字符串字面量 `"text"`、字符字面量 `'A'`
 - 变量引用
 - 方法调用
 
@@ -78,6 +79,7 @@ String result = calculator.calculation("a + b * (c + 2)", variables);
 ### 数字处理规则
 
 - 表达式计算时，数字统一按 `BigDecimal` 语义处理
+- `+` 遇到非数值字符串/字符时按拼接处理；两侧都能识别为数字时仍按数值相加
 - 返回值会做规范化，例如：
   - `5.0 -> "5"`
   - `0.000 -> "0"`
@@ -89,6 +91,7 @@ String result = calculator.calculation("a + b * (c + 2)", variables);
 - 比较运算：`== != > < >= <=`
 - 逻辑运算：`&& ||`
 - 布尔分组：`()`
+- 字符串/字符字面量参与比较
 - 变量、文件、集合、布尔值直接参与真值判断
 
 ### 示例
@@ -127,7 +130,7 @@ boolean r3 = calculator.compareCalculation("isTrue == true && x > 0", variables)
 
 说明：
 
-- 数字、数字字符串不能直接作为最终布尔结果
+- 数字、字符串、字符不能直接作为最终布尔结果
 - 例如 `compareCalculation("a + b", variables)` 会报错，因为缺少比较运算符
 
 ## 7. 方法调用
@@ -137,6 +140,7 @@ boolean r3 = calculator.compareCalculation("isTrue == true && x > 0", variables)
 1. 无参方法调用
 2. 有参方法调用
 3. 链式方法调用
+4. 字符串/字符字面量参数
 
 ### 无参方法
 
@@ -154,6 +158,11 @@ variables.put("num2", 55);
 
 calculator.calculation("num1.add(num2)", variables);
 // "178"
+```
+
+```java
+calculator.calculation("\"a,b\".replace(\",\", \";\")", variables);
+// "a;b"
 ```
 
 ### 链式方法
@@ -191,6 +200,7 @@ calculator.calculation("num1.add(55)", variables);
 - 超深包裹括号：`((((...))))`
 - 超深正常算术嵌套：`(1 + (2 + (3 + ... )))`
 - 超深布尔嵌套：`a == b || (c == d || (...))`
+- 引号内的 `,`、`&&`、`||`、括号不会被误判为结构符号
 - 层级超限时快速失败
 - 非法数字格式
 - 括号不匹配

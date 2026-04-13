@@ -21,7 +21,7 @@ The `expression-calculator` library provides a unified interface for evaluating 
 Add to your Maven `pom.xml`:
 ```xml
 <dependency>
-  <groupId>com.example</groupId>
+  <groupId>com.clmcat.commons</groupId>
   <artifactId>expression-calculator</artifactId>
   <version>YOUR_VERSION</version>
 </dependency>
@@ -47,6 +47,7 @@ Exceeding the limit throws: `Expression depth limit exceeded: 100`
 - Operators: `+ - * /`
 - Parentheses: `()`
 - Unary plus/minus: `+x -x`
+- String literals `"text"` and character literals `'A'`
 - Variable references
 - Method calls (e.g., `str.length()`)
 
@@ -56,10 +57,14 @@ Map<String, Object> vars = Map.of("price", 12.5, "discount", 2.5);
 String result = calc.calculation("price + discount", vars); // "15"
 ```
 
+- `+` performs string concatenation when a non-numeric string/character is involved.
+- If both operands can still be interpreted as numbers, addition keeps numeric semantics.
+
 ### 4.2 Comparison & Logical Expressions (`compareCalculation`)
 - Comparisons: `== != > < >= <=`
 - Logical: `&& ||`
 - Parentheses
+- String and character literals in comparisons
 - Direct variable truthiness (see below)
 
 #### Example
@@ -79,12 +84,13 @@ In `compareCalculation`, these types can be used directly as conditions:
 | Map          | not empty                   |
 | Array        | length > 0                  |
 
-Numbers/strings must be used with comparison operators (e.g., `a > 0`).
+Numbers, strings, and characters must be used with comparison operators (e.g., `a > 0`).
 
 ## 6. Method Calls in Expressions
 - Supports no-arg, arg, and chained method calls.
 - Variable numbers are converted to `BigDecimal` for method matching.
 - Direct literals retain their type.
+- String and character literals are valid method arguments.
 
 #### Example
 ```java
@@ -92,9 +98,14 @@ vars.put("str", "Hello World");
 calc.calculation("str.length()", vars); // "11"
 ```
 
+```java
+calc.calculation("\"a,b\".replace(\",\", \";\")", vars); // "a;b"
+```
+
 ## 7. Calculation Boundaries & Defensive Features
 - Configurable max expression depth (constructor parameter)
 - Handles unmatched parentheses, invalid numbers, missing variables, divide by zero, illegal method calls
+- Delimiters inside quoted text (`,`, `&&`, `||`, parentheses) are ignored by structural scanners
 - Iterative implementation is robust against stack overflow from deep nesting
 
 ## 8. Exception Cases

@@ -28,7 +28,6 @@ final class IterativeBooleanExpressionEngine {
 
     private static final String AND_OPERATOR = "&&";
     private static final String OR_OPERATOR = "||";
-    private static final String[] COMPARISON_OPERATORS = {">=", "<=", "==", "!=", ">", "<"};
 
     private IterativeBooleanExpressionEngine() {
     }
@@ -147,31 +146,12 @@ final class IterativeBooleanExpressionEngine {
          * </pre>
          */
         private boolean isBooleanGroupStart(int start) {
-            int matchingParen = findMatchingParen(start);
+            int matchingParen = ExpressionTextSupport.findMatchingParenthesis(text, start);
             int next = skipWhitespace(matchingParen + 1);
             return next >= text.length()
                     || text.startsWith(AND_OPERATOR, next)
                     || text.startsWith(OR_OPERATOR, next)
                     || text.charAt(next) == ')';
-        }
-
-        private int findMatchingParen(int start) {
-            int level = 0;
-            for (int index = start; index < text.length(); index++) {
-                char current = text.charAt(index);
-                if (current == '(') {
-                    level++;
-                } else if (current == ')') {
-                    level--;
-                    if (level == 0) {
-                        return index;
-                    }
-                    if (level < 0) {
-                        throw new IllegalArgumentException("括号不匹配");
-                    }
-                }
-            }
-            throw new IllegalArgumentException("括号不匹配");
         }
 
         /**
@@ -188,6 +168,10 @@ final class IterativeBooleanExpressionEngine {
             int level = 0;
             for (int index = start; index < text.length(); index++) {
                 char current = text.charAt(index);
+                if (ExpressionTextSupport.isQuote(current)) {
+                    index = ExpressionTextSupport.skipQuotedLiteral(text, index);
+                    continue;
+                }
                 if (current == '(') {
                     level++;
                 } else if (current == ')') {
@@ -229,6 +213,10 @@ final class IterativeBooleanExpressionEngine {
             int level = 0;
             for (int index = start; index < text.length(); index++) {
                 char current = text.charAt(index);
+                if (ExpressionTextSupport.isQuote(current)) {
+                    index = ExpressionTextSupport.skipQuotedLiteral(text, index);
+                    continue;
+                }
                 if (current == '(') {
                     level++;
                 } else if (current == ')') {
@@ -251,6 +239,10 @@ final class IterativeBooleanExpressionEngine {
             int level = 0;
             for (int index = 0; index < text.length(); index++) {
                 char current = text.charAt(index);
+                if (ExpressionTextSupport.isQuote(current)) {
+                    index = ExpressionTextSupport.skipQuotedLiteral(text, index);
+                    continue;
+                }
                 if (current == '(') {
                     level++;
                 } else if (current == ')') {
@@ -262,7 +254,7 @@ final class IterativeBooleanExpressionEngine {
                 if (level != 0) {
                     continue;
                 }
-                for (String operator : COMPARISON_OPERATORS) {
+                for (String operator : ExpressionTextSupport.COMPARISON_OPERATORS) {
                     if (!text.startsWith(operator, index)) {
                         continue;
                     }
