@@ -47,6 +47,7 @@ class ExpressionCalculatorGeneratedEdgeCaseTest {
         Files.write(filePath, "edge".getBytes(StandardCharsets.UTF_8));
         File file = filePath.toFile();
         variables.put("file", file);
+        variables.put("notExistFile", new File("abc.txt")); // 不存在的文件
     }
 
     @ParameterizedTest(name = "{0}")
@@ -64,6 +65,12 @@ class ExpressionCalculatorGeneratedEdgeCaseTest {
         assertTrue(calculator.compareCalculation("nullable == null", variables));
         assertFalse(calculator.compareCalculation("file == null", variables));
         assertTrue(calculator.compareCalculation("file != null && file.exists()", variables));
+        assertTrue(calculator.compareCalculation("file", variables));
+        assertFalse(calculator.compareCalculation("!file", variables));
+        assertFalse(calculator.compareCalculation("!file.exists()", variables));
+        assertTrue(calculator.compareCalculation("!notExistFile", variables));
+        assertFalse(calculator.compareCalculation("notExistFile", variables));
+        assertFalse(calculator.compareCalculation("notExistFile.exists()", variables));
     }
 
     @ParameterizedTest(name = "{0}")

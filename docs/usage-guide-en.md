@@ -65,17 +65,18 @@ String result = calc.calculation("price + discount", vars); // "15"
 
 ### 4.2 Comparison & Logical Expressions (`compareCalculation`)
 - Comparisons: `== != > < >= <=`
-- Logical: `&& ||`
+- Logical: `! && ||`
 - Parentheses
 - String and character literals in comparisons
 - Missing variables are treated as `null` only for `== null` / `!= null` checks
 - Direct variable truthiness (see below)
 - Arithmetic and bitwise subexpressions can appear on either side of comparisons
-- Built-in defaults already include `%`, `**`, `~`, `<<`, `>>`, `>>>`, `<<<`, `&`, `|`, and `^`
+- Built-in defaults already include `%`, `**`, `!`, `~`, `<<`, `>>`, `>>>`, `<<<`, `&`, `|`, and `^`
 
 Notes:
 
 - `&&` and `||` keep their dedicated short-circuit implementation and are not part of the normal operator registry
+- `!` is a built-in unary operator for negating standalone truthiness or boolean-returning method calls such as `!file` and `!file.exists()`
 - See `expression-calculator\README_EXTENSIBILITY.md` for registration examples
 
 #### Example
@@ -95,8 +96,9 @@ In `compareCalculation`, these types can be used directly as conditions:
 | Collection   | not empty                   |
 | Map          | not empty                   |
 | Array        | length > 0                  |
+| Other direct variable values | non-null => true |
 
-Numbers, strings, and characters must be used with comparison operators (e.g., `a > 0`).
+Direct variables use the rules above, so a non-null string/number/character variable is truthy. Literals and computed numeric/string/character expressions still need explicit comparisons (for example, `a > 0`, not `a + b`).
 Missing variables still raise a variable-not-found error outside of null equality checks.
 
 ## 6. Method Calls in Expressions

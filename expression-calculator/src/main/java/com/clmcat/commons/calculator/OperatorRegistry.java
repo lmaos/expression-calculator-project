@@ -95,7 +95,7 @@ public final class OperatorRegistry {
         return match(unaryOperatorSnapshot, text, start);
     }
 
-    synchronized void resetToDefaults() {
+    public synchronized void resetToDefaults() {
         unaryOperators.clear();
         binaryOperators.clear();
         registerDefaults();
@@ -106,6 +106,7 @@ public final class OperatorRegistry {
         registerUnaryInternal("+", PRECEDENCE_UNARY, Associativity.RIGHT, ExpressionRuntimeSupport::positive);
         registerUnaryInternal("-", PRECEDENCE_UNARY, Associativity.RIGHT, ExpressionRuntimeSupport::negate);
         registerUnaryInternal("~", PRECEDENCE_UNARY, Associativity.RIGHT, ExpressionRuntimeSupport::bitwiseNot);
+        registerUnaryInternal("!", PRECEDENCE_UNARY, Associativity.RIGHT, ExpressionRuntimeSupport::logicalNot);
 
         registerBinaryInternal("*", PRECEDENCE_MULTIPLICATIVE, Associativity.LEFT, ExpressionRuntimeSupport::multiply);
         registerBinaryInternal("/", PRECEDENCE_MULTIPLICATIVE, Associativity.LEFT, ExpressionRuntimeSupport::divide);

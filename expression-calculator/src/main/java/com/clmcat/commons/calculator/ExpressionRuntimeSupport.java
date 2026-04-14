@@ -206,6 +206,10 @@ final class ExpressionRuntimeSupport {
         return value;
     }
 
+    static RuntimeValue logicalNot(RuntimeValue value) {
+        return RuntimeValue.computed(!toStandaloneBoolean(value));
+    }
+
     // ----- 布尔真值与比较 -----
     static boolean toStandaloneBoolean(RuntimeValue value) {
         ensurePresent(value);
@@ -223,11 +227,14 @@ final class ExpressionRuntimeSupport {
          * array           -> 长度 > 0
          *
          * 数字 / 字符串不允许直接当 compareCalculation 的最终结果，
-         * 否则像 "a + b" 这种输入会悄悄被解释成 true/false，破坏题目约束。
+         * 否则像 "a + b" 这种计算结果会悄悄被解释成 true/false，破坏题目约束。
+         *
+         * 但“单独变量”的语义单独放宽：
+         * - 变量为 null -> false
+         * - 变量为非 null -> true
+         *
+         * File / Collection / Map / Array 仍优先走各自的专用真值规则。
          */
-        if (raw == null) {
-            return false;
-        }
         if (raw instanceof Boolean) {
             return (Boolean) raw;
         }
@@ -244,6 +251,9 @@ final class ExpressionRuntimeSupport {
             return Array.getLength(raw) > 0;
         }
         if (raw instanceof Number || raw instanceof CharSequence || raw instanceof Character) {
+            if (value.origin() == RuntimeValue.Origin.VARIABLE) {
+                return true;
+            }
             throw new IllegalArgumentException("比较表达式缺少比较运算符");
         }
         return true;

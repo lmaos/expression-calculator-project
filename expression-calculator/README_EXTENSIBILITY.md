@@ -8,7 +8,7 @@ Default registrations are:
 
 | Precedence | Operators | Associativity |
 | --- | --- | --- |
-| 10 | unary `+` `-` `~` | RIGHT |
+| 10 | unary `+` `-` `~` `!` | RIGHT |
 | 9 | `**` | RIGHT |
 | 8 | `*` `/` `%` | LEFT |
 | 7 | `+` `-` | LEFT |
@@ -24,6 +24,7 @@ Default registrations are:
 ### Symbol notes
 
 - `**` means power.
+- `!` means logical negation for standalone truthiness / boolean results.
 - `^` means bitwise xor.
 - `<<<` is a DSL alias of `<<`.
 - The built-in default set does not expose a separate `xor` keyword.

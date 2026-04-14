@@ -46,8 +46,10 @@ class IterativeExpressionCalculatorSpecialTypesTest {
         variables.put("endDate", LocalDate.of(2024, 1, 2));
         variables.put("alpha", "alpha");
         variables.put("beta", "beta");
+        variables.put("abc", "present");
         variables.put("items", Arrays.asList(1, 2));
         variables.put("emptyItems", Collections.emptyList());
+        variables.put("colls", Collections.emptyList());
 
         Map<String, String> metadata = new HashMap<>();
         metadata.put("k", "v");
@@ -66,13 +68,31 @@ class IterativeExpressionCalculatorSpecialTypesTest {
     void shouldEvaluateStandaloneBooleanAndFileAndCollectionVariables(String name, ExpressionCalculator calculator) {
         assertTrue(calculator.compareCalculation("enabled", variables));
         assertFalse(calculator.compareCalculation("disabled", variables));
+        assertTrue(calculator.compareCalculation("abc", variables));
         assertTrue(calculator.compareCalculation("existingFile", variables));
         assertFalse(calculator.compareCalculation("missingFile", variables));
         assertTrue(calculator.compareCalculation("items", variables));
         assertFalse(calculator.compareCalculation("emptyItems", variables));
+        assertFalse(calculator.compareCalculation("colls", variables));
         assertTrue(calculator.compareCalculation("metadata", variables));
         assertFalse(calculator.compareCalculation("emptyMetadata", variables));
         assertFalse(calculator.compareCalculation("nullable", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    void shouldSupportLogicalNotForStandaloneVariables(String name, ExpressionCalculator calculator) {
+        assertFalse(calculator.compareCalculation("!enabled", variables));
+        assertTrue(calculator.compareCalculation("!disabled", variables));
+        assertFalse(calculator.compareCalculation("!abc", variables));
+        assertFalse(calculator.compareCalculation("!existingFile", variables));
+        assertTrue(calculator.compareCalculation("!missingFile", variables));
+        assertFalse(calculator.compareCalculation("!items", variables));
+        assertTrue(calculator.compareCalculation("!emptyItems", variables));
+        assertTrue(calculator.compareCalculation("!colls", variables));
+        assertFalse(calculator.compareCalculation("!metadata", variables));
+        assertTrue(calculator.compareCalculation("!emptyMetadata", variables));
+        assertTrue(calculator.compareCalculation("!nullable", variables));
     }
 
     @ParameterizedTest(name = "{0}")
