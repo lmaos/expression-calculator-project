@@ -16,6 +16,7 @@ import java.util.function.Function;
  */
 public final class OperatorRegistry {
 
+    private static final int PRECEDENCE_PRIMARY = 11;
     // 优先级从低到高依次为：等号、位或、位异或、位与、关系、移位、加减、乘除、幂、一元。
     private static final int PRECEDENCE_EQUALITY = 1;
     private static final int PRECEDENCE_BITWISE_OR = 2;
@@ -87,12 +88,24 @@ public final class OperatorRegistry {
         return unaryOperatorSnapshot;
     }
 
+    static int primaryPrecedence() {
+        return PRECEDENCE_PRIMARY;
+    }
+
+    static int unaryPrecedence() {
+        return PRECEDENCE_UNARY;
+    }
+
     Operator matchBinaryOperator(String text, int start) {
         return match(binaryOperatorSnapshot, text, start);
     }
 
     Operator matchUnaryOperator(String text, int start) {
         return match(unaryOperatorSnapshot, text, start);
+    }
+
+    Operator getBinaryOperator(String symbol) {
+        return binaryOperators.get(symbol);
     }
 
     public synchronized void resetToDefaults() {
@@ -111,6 +124,7 @@ public final class OperatorRegistry {
         registerBinaryInternal("*", PRECEDENCE_MULTIPLICATIVE, Associativity.LEFT, ExpressionRuntimeSupport::multiply);
         registerBinaryInternal("/", PRECEDENCE_MULTIPLICATIVE, Associativity.LEFT, ExpressionRuntimeSupport::divide);
         registerBinaryInternal("%", PRECEDENCE_MULTIPLICATIVE, Associativity.LEFT, ExpressionRuntimeSupport::remainder);
+        registerBinaryInternal(IndexOperator.SYMBOL, PRECEDENCE_PRIMARY, Associativity.LEFT, IndexOperator::apply);
         registerBinaryInternal("+", PRECEDENCE_ADDITIVE, Associativity.LEFT, ExpressionRuntimeSupport::add);
         registerBinaryInternal("-", PRECEDENCE_ADDITIVE, Associativity.LEFT, ExpressionRuntimeSupport::subtract);
         registerBinaryInternal("**", PRECEDENCE_POWER, Associativity.RIGHT, ExpressionRuntimeSupport::power);

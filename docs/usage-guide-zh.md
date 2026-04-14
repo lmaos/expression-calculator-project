@@ -8,7 +8,8 @@
 - 两种实现：
   - `RecursiveExpressionCalculator`：递归，结构直观，适合教学和简单表达式
   - `IterativeExpressionCalculator`：显式栈，适合深层嵌套和生产环境
-- 支持算术、比较、逻辑运算、位运算及方法调用
+- 支持算术、比较、逻辑运算、位运算、方法调用、下标访问、类型转换
+- 支持 `evaluate(...)` 原始值求值与 `ExpressionFormat` 模板格式化
 - 防御恶意或过深表达式
 
 ## 2. 环境要求
@@ -30,9 +31,14 @@ Maven `pom.xml`：
 ### 3.2 基本用法
 ```java
 ExpressionCalculator calc = new IterativeExpressionCalculator();
-Map<String, Object> vars = Map.of("a", 1, "b", 2, "c", 3);
+Map<String, Object> vars = new HashMap<String, Object>();
+vars.put("a", 1);
+vars.put("b", 2);
+vars.put("c", 3);
+
 String result = calc.calculation("a + b * (c + 2)", vars); // "11"
 boolean ok = calc.compareCalculation("a + b > 2 && c == 3", vars); // true
+Object raw = calc.evaluate("a + b", vars); // Integer(3)
 ```
 
 ### 3.3 设置表达式层级限制
@@ -41,6 +47,15 @@ ExpressionCalculator calc = new IterativeExpressionCalculator(100); // 最大层
 ```
 超限抛出：`表达式层级超过限制: 100`
 
+### 3.4 模板格式化
+```java
+ExpressionFormat formatter = new DefaultExpressionFormat(calc);
+
+String text = formatter.format("1 + 2 = ${1 + 2}", vars);  // 1 + 2 = 3
+String escaped = formatter.format("\\${a + b}", vars);     // ${a + b}
+String custom = formatter.format("#{a + b}", "#{?}", vars);// 3
+```
+
 ## 4. 支持的表达式类型
 
 ### 4.1 算术表达式（`calculation`）
@@ -48,13 +63,16 @@ ExpressionCalculator calc = new IterativeExpressionCalculator(100); // 最大层
 - 位运算：`~ << >> >>> <<< & | ^`
 - 括号：`()`
 - 一元正负号：`+x -x`
-- 字符串字面量 `"text"`、字符字面量 `'A'`
+- 双引号字符串 `"text"`
+- 单引号字面量：单字符按 `Character` 处理，多字符按字符串处理，例如 `'A'`、`'name_'`
 - 变量引用
 - 方法调用（如 `str.length()`）
 
 #### 示例
 ```java
-Map<String, Object> vars = Map.of("price", 12.5, "discount", 2.5);
+Map<String, Object> vars = new HashMap<String, Object>();
+vars.put("price", 12.5);
+vars.put("discount", 2.5);
 String result = calc.calculation("price + discount", vars); // "15"
 ```
 
@@ -81,9 +99,42 @@ String result = calc.calculation("price + discount", vars); // "15"
 
 #### 示例
 ```java
-Map<String, Object> vars = Map.of("enabled", true, "count", 5);
+Map<String, Object> vars = new HashMap<String, Object>();
+vars.put("enabled", true);
+vars.put("count", 5);
 boolean ok = calc.compareCalculation("enabled && count > 0", vars); // true
 boolean bitwiseOk = calc.compareCalculation("(10 ^ 12) == 6", vars); // true
+```
+
+### 4.3 原始值求值（`evaluate`）
+`evaluate` 返回原始对象，不做字符串格式化：
+
+```java
+Object intValue = calc.evaluate("1 + 2", vars);     // Integer(3)
+Object longValue = calc.evaluate("1 + 2L", vars);   // Long(3)
+Object decimal = calc.evaluate("1 + 2.0", vars);    // BigDecimal(3)
+Object flag = calc.evaluate("enabled || count > 0", vars); // Boolean.TRUE
+```
+
+### 4.4 下标访问与类型转换
+```java
+Map<String, Object> inventory = new HashMap<String, Object>();
+inventory.put("count", 3);
+vars.put("inventory", inventory);
+vars.put("numbers", Arrays.asList(10, 20, 30));
+vars.put("index", 1);
+
+Object listValue = calc.evaluate("numbers[index]", vars);             // 20
+Object mapValue = calc.evaluate("inventory['count']", vars);          // 3
+Object castValue = calc.evaluate("(String)(inventory['count'] + 2)", vars); // "5"
+```
+
+### 4.5 自定义类型转换器
+```java
+ConverterRegistry registry = ConverterRegistry.getInstance();
+registry.register("wrapped", value -> value == null ? null : "[" + value + "]");
+
+Object wrapped = calc.evaluate("(wrapped)123", vars); // "[123]"
 ```
 
 ## 5. 支持的变量类型（布尔条件）
@@ -160,5 +211,17 @@ calc.calculation("file.getName().substring(0, 4).length()", vars);
 - 深度嵌套：`(1 + (2 + (3 + ... )))`
 - 深层布尔：`a == b || (c == d || (...))`
 - 所有此类场景均有层级限制与清晰异常提示。
+
+### 10.3 模板与动态 key
+当前 `ExpressionFormat` 不支持占位符嵌套，推荐把动态 key 写在表达式内部：
+
+```java
+Map<String, Object> dynamicMap = new HashMap<String, Object>();
+dynamicMap.put("name_1", "Copilot");
+vars.put("dynamicMap", dynamicMap);
+vars.put("index", 1);
+
+String text = formatter.format("${dynamicMap['name_' + index]}", vars); // Copilot
+```
 
 ---

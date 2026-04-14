@@ -8,7 +8,8 @@ The `expression-calculator` library provides a unified interface for evaluating 
 - Two implementations:
   - `RecursiveExpressionCalculator`: Recursive, readable, ideal for learning and simple expressions
   - `IterativeExpressionCalculator`: Stack-based, robust for deep nesting and production
-- Supports arithmetic, comparison, logical, bitwise operations, and method calls
+- Supports arithmetic, comparison, logical, bitwise operations, method calls, indexing, and casts
+- Supports raw-value `evaluate(...)` and template formatting through `ExpressionFormat`
 - Defensive against malicious or overly deep expressions
 
 ## 2. Environment Requirements
@@ -30,9 +31,14 @@ Add to your Maven `pom.xml`:
 ### 3.2 Basic Usage
 ```java
 ExpressionCalculator calc = new IterativeExpressionCalculator();
-Map<String, Object> vars = Map.of("a", 1, "b", 2, "c", 3);
+Map<String, Object> vars = new HashMap<String, Object>();
+vars.put("a", 1);
+vars.put("b", 2);
+vars.put("c", 3);
+
 String result = calc.calculation("a + b * (c + 2)", vars); // "11"
 boolean ok = calc.compareCalculation("a + b > 2 && c == 3", vars); // true
+Object raw = calc.evaluate("a + b", vars); // Integer(3)
 ```
 
 ### 3.3 Set Expression Depth Limit
@@ -41,6 +47,15 @@ ExpressionCalculator calc = new IterativeExpressionCalculator(100); // max depth
 ```
 Exceeding the limit throws: `Expression depth limit exceeded: 100`
 
+### 3.4 Template Formatting
+```java
+ExpressionFormat formatter = new DefaultExpressionFormat(calc);
+
+String text = formatter.format("1 + 2 = ${1 + 2}", vars);  // 1 + 2 = 3
+String escaped = formatter.format("\\${a + b}", vars);     // ${a + b}
+String custom = formatter.format("#{a + b}", "#{?}", vars);// 3
+```
+
 ## 4. Supported Expression Types
 
 ### 4.1 Arithmetic Expressions (`calculation`)
@@ -48,13 +63,16 @@ Exceeding the limit throws: `Expression depth limit exceeded: 100`
 - Bitwise operators: `~ << >> >>> <<< & | ^`
 - Parentheses: `()`
 - Unary plus/minus: `+x -x`
-- String literals `"text"` and character literals `'A'`
+- Double-quoted strings `"text"`
+- Single-quoted literals: one character stays `Character`, multi-character text becomes `String`, such as `'A'` and `'name_'`
 - Variable references
 - Method calls (e.g., `str.length()`)
 
 #### Example
 ```java
-Map<String, Object> vars = Map.of("price", 12.5, "discount", 2.5);
+Map<String, Object> vars = new HashMap<String, Object>();
+vars.put("price", 12.5);
+vars.put("discount", 2.5);
 String result = calc.calculation("price + discount", vars); // "15"
 ```
 
@@ -81,9 +99,42 @@ Notes:
 
 #### Example
 ```java
-Map<String, Object> vars = Map.of("enabled", true, "count", 5);
+Map<String, Object> vars = new HashMap<String, Object>();
+vars.put("enabled", true);
+vars.put("count", 5);
 boolean ok = calc.compareCalculation("enabled && count > 0", vars); // true
 boolean bitwiseOk = calc.compareCalculation("(10 ^ 12) == 6", vars); // true
+```
+
+### 4.3 Raw-Value Evaluation (`evaluate`)
+`evaluate` returns the original Java object instead of a formatted string:
+
+```java
+Object intValue = calc.evaluate("1 + 2", vars);     // Integer(3)
+Object longValue = calc.evaluate("1 + 2L", vars);   // Long(3)
+Object decimal = calc.evaluate("1 + 2.0", vars);    // BigDecimal(3)
+Object flag = calc.evaluate("enabled || count > 0", vars); // Boolean.TRUE
+```
+
+### 4.4 Indexing and Casts
+```java
+Map<String, Object> inventory = new HashMap<String, Object>();
+inventory.put("count", 3);
+vars.put("inventory", inventory);
+vars.put("numbers", Arrays.asList(10, 20, 30));
+vars.put("index", 1);
+
+Object listValue = calc.evaluate("numbers[index]", vars);             // 20
+Object mapValue = calc.evaluate("inventory['count']", vars);          // 3
+Object castValue = calc.evaluate("(String)(inventory['count'] + 2)", vars); // "5"
+```
+
+### 4.5 Custom Converters
+```java
+ConverterRegistry registry = ConverterRegistry.getInstance();
+registry.register("wrapped", value -> value == null ? null : "[" + value + "]");
+
+Object wrapped = calc.evaluate("(wrapped)123", vars); // "[123]"
 ```
 
 ## 5. Supported Variable Types for Boolean Conditions
@@ -160,5 +211,17 @@ calc.calculation("file.getName().substring(0, 4).length()", vars);
 - Deeply nested: `(1 + (2 + (3 + ... )))`
 - Deep boolean: `a == b || (c == d || (...))`
 - All such cases are handled with depth limits and robust error reporting.
+
+### 10.3 Templates with Dynamic Keys
+`ExpressionFormat` does not support nested placeholders. Build dynamic keys inside the expression instead:
+
+```java
+Map<String, Object> dynamicMap = new HashMap<String, Object>();
+dynamicMap.put("name_1", "Copilot");
+vars.put("dynamicMap", dynamicMap);
+vars.put("index", 1);
+
+String text = formatter.format("${dynamicMap['name_' + index]}", vars); // Copilot
+```
 
 ---

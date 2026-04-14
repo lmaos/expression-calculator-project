@@ -157,7 +157,8 @@ final class IterativeBooleanExpressionEngine {
          * <p>内部值表达式的括号不会被误判为边界，因为会被 level 计数屏蔽掉。
          */
         private int findNextBooleanBoundary(int start) {
-            int level = 0;
+            int parenthesisLevel = 0;
+            int bracketLevel = 0;
             for (int index = start; index < text.length(); index++) {
                 char current = text.charAt(index);
                 if (ExpressionTextSupport.isQuote(current)) {
@@ -165,23 +166,34 @@ final class IterativeBooleanExpressionEngine {
                     continue;
                 }
                 if (current == '(') {
-                    level++;
+                    parenthesisLevel++;
                 } else if (current == ')') {
-                    if (level == 0) {
+                    if (parenthesisLevel == 0) {
                         return index;
                     }
-                    level--;
-                    if (level < 0) {
+                    parenthesisLevel--;
+                    if (parenthesisLevel < 0) {
                         throw new IllegalArgumentException("括号不匹配");
+                    }
+                } else if (current == '[') {
+                    bracketLevel++;
+                } else if (current == ']') {
+                    bracketLevel--;
+                    if (bracketLevel < 0) {
+                        throw new IllegalArgumentException("方括号不匹配");
                     }
                 }
 
-                if (level == 0 && (text.startsWith(AND_OPERATOR, index) || text.startsWith(OR_OPERATOR, index))) {
+                if (parenthesisLevel == 0 && bracketLevel == 0
+                        && (text.startsWith(AND_OPERATOR, index) || text.startsWith(OR_OPERATOR, index))) {
                     return index;
                 }
             }
-            if (level != 0) {
+            if (parenthesisLevel != 0) {
                 throw new IllegalArgumentException("括号不匹配");
+            }
+            if (bracketLevel != 0) {
+                throw new IllegalArgumentException("方括号不匹配");
             }
             return text.length();
         }
@@ -200,7 +212,8 @@ final class IterativeBooleanExpressionEngine {
          * </pre>
          */
         private int skipCurrentFrameRemainder(int start) {
-            int level = 0;
+            int parenthesisLevel = 0;
+            int bracketLevel = 0;
             for (int index = start; index < text.length(); index++) {
                 char current = text.charAt(index);
                 if (ExpressionTextSupport.isQuote(current)) {
@@ -208,19 +221,29 @@ final class IterativeBooleanExpressionEngine {
                     continue;
                 }
                 if (current == '(') {
-                    level++;
+                    parenthesisLevel++;
                 } else if (current == ')') {
-                    if (level == 0) {
+                    if (parenthesisLevel == 0) {
                         return index;
                     }
-                    level--;
-                    if (level < 0) {
+                    parenthesisLevel--;
+                    if (parenthesisLevel < 0) {
                         throw new IllegalArgumentException("括号不匹配");
+                    }
+                } else if (current == '[') {
+                    bracketLevel++;
+                } else if (current == ']') {
+                    bracketLevel--;
+                    if (bracketLevel < 0) {
+                        throw new IllegalArgumentException("方括号不匹配");
                     }
                 }
             }
-            if (level != 0) {
+            if (parenthesisLevel != 0) {
                 throw new IllegalArgumentException("括号不匹配");
+            }
+            if (bracketLevel != 0) {
+                throw new IllegalArgumentException("方括号不匹配");
             }
             return text.length();
         }

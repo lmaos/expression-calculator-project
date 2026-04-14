@@ -32,6 +32,18 @@ final class IterativeExpressionEngine {
         return ExpressionRuntimeSupport.formatForCalculation(evaluateValue(text, variables));
     }
 
+    static RuntimeValue evaluateAny(String text, Map<String, Object> variables) {
+        String required = ExpressionRuntimeSupport.requireText(text);
+        try {
+            return evaluateValue(required, variables);
+        } catch (IllegalArgumentException exception) {
+            if (!ExpressionTextSupport.containsTopLevelLogicalOperators(required)) {
+                throw exception;
+            }
+        }
+        return RuntimeValue.computed(IterativeBooleanExpressionEngine.evaluate(required, variables));
+    }
+
     static RuntimeValue evaluateValue(String text, Map<String, Object> variables) {
         return new Evaluator(ExpressionRuntimeSupport.requireText(text), variables).evaluate();
     }
@@ -40,6 +52,7 @@ final class IterativeExpressionEngine {
         private final String text;
         private final Map<String, Object> variables;
         private final OperatorRegistry operatorRegistry = OperatorRegistry.getInstance();
+        private final ConverterRegistry converterRegistry = ConverterRegistry.getInstance();
         private final Deque<RuntimeValue> values = new ArrayDeque<>();
         private final Deque<Operator> operators = new ArrayDeque<>();
         private int position;
@@ -65,7 +78,10 @@ final class IterativeExpressionEngine {
                 }
 
                 if (expectOperand) {
-                    Operator unaryOperator = readUnaryOperator();
+                    Operator unaryOperator = readCastOperator();
+                    if (unaryOperator == null) {
+                        unaryOperator = readUnaryOperator();
+                    }
                     if (unaryOperator != null) {
                         pushOperator(unaryOperator);
                         continue;
@@ -82,6 +98,10 @@ final class IterativeExpressionEngine {
 
                 if (peek('.')) {
                     applyMethodCall();
+                    continue;
+                }
+                if (peek('[')) {
+                    applyIndexAccess();
                     continue;
                 }
                 if (match(')')) {
@@ -117,7 +137,7 @@ final class IterativeExpressionEngine {
                 return RuntimeValue.literal(parseStringLiteral());
             }
             if (current == '\'') {
-                return RuntimeValue.literal(parseCharacterLiteral());
+                return RuntimeValue.literal(parseSingleQuotedLiteral());
             }
             if (Character.isDigit(current) || current == '.') {
                 return RuntimeValue.literal(parseNumberLiteral());
@@ -165,6 +185,20 @@ final class IterativeExpressionEngine {
             values.push(ExpressionRuntimeSupport.invokeMethod(receiverValue, methodName, arguments));
         }
 
+        private void applyIndexAccess() {
+            if (values.isEmpty()) {
+                throw new IllegalArgumentException("表达式格式错误");
+            }
+            match('[');
+            int indexStart = position;
+            int indexEnd = findClosingSquareBracket(indexStart - 1);
+            RuntimeValue indexValue = evaluateAny(text.substring(indexStart, indexEnd), variables);
+            position = indexEnd + 1;
+
+            RuntimeValue receiverValue = values.pop();
+            values.push(indexOperator().apply(receiverValue, indexValue));
+        }
+
         private List<RuntimeValue> parseArguments(int startInclusive, int endExclusive) {
             String argumentText = text.substring(startInclusive, endExclusive).trim();
             if (argumentText.isEmpty()) {
@@ -173,13 +207,17 @@ final class IterativeExpressionEngine {
             List<String> parts = ExpressionTextSupport.splitArguments(argumentText);
             List<RuntimeValue> arguments = new ArrayList<>(parts.size());
             for (String part : parts) {
-                arguments.add(IterativeExpressionEngine.evaluateValue(part, variables));
+                arguments.add(IterativeExpressionEngine.evaluateAny(part, variables));
             }
             return arguments;
         }
 
         private int findClosingParenthesis(int openIndex) {
             return ExpressionTextSupport.findMatchingParenthesis(text, openIndex);
+        }
+
+        private int findClosingSquareBracket(int openIndex) {
+            return ExpressionTextSupport.findMatchingSquareBracket(text, openIndex);
         }
 
         private Object parseNumberLiteral() {
@@ -194,8 +232,8 @@ final class IterativeExpressionEngine {
             return token.value();
         }
 
-        private Character parseCharacterLiteral() {
-            ExpressionTextSupport.ParsedToken<Character> token = ExpressionTextSupport.parseCharacterLiteral(text, position);
+        private Object parseSingleQuotedLiteral() {
+            ExpressionTextSupport.ParsedToken<Object> token = ExpressionTextSupport.parseSingleQuotedLiteral(text, position);
             position = token.nextIndex();
             return token.value();
         }
@@ -270,6 +308,16 @@ final class IterativeExpressionEngine {
             return operator;
         }
 
+        private Operator readCastOperator() {
+            ExpressionTextSupport.ParsedToken<String> token =
+                    ExpressionTextSupport.parseCastType(text, position, converterRegistry);
+            if (token == null) {
+                return null;
+            }
+            position = token.nextIndex();
+            return CastOperator.create(token.value());
+        }
+
         private Operator readBinaryOperator() {
             Operator operator = operatorRegistry.matchBinaryOperator(text, position);
             if (operator != null) {
@@ -302,6 +350,10 @@ final class IterativeExpressionEngine {
 
         private char currentChar() {
             return text.charAt(position);
+        }
+
+        private Operator indexOperator() {
+            return operatorRegistry.getBinaryOperator(IndexOperator.SYMBOL);
         }
     }
 }

@@ -34,7 +34,7 @@ class ExpressionCalculatorLiteralBoundaryTest {
     @MethodSource("calculators")
     void shouldRejectBrokenStringAndCharacterLiterals(String name, ExpressionCalculator calculator) {
         assertThrows(IllegalArgumentException.class, () -> calculator.calculation("\"unterminated", variables));
-        assertThrows(IllegalArgumentException.class, () -> calculator.calculation("'ab'", variables));
+        assertThrows(IllegalArgumentException.class, () -> calculator.calculation("'ab", variables));
         assertThrows(IllegalArgumentException.class, () -> calculator.calculation("'\\x'", variables));
     }
 

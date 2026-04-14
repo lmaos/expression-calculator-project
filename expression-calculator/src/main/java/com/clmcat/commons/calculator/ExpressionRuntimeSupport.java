@@ -89,40 +89,32 @@ final class ExpressionRuntimeSupport {
         if (shouldConcatenate(left.raw(), right.raw())) {
             return RuntimeValue.computed(String.valueOf(left.raw()) + String.valueOf(right.raw()));
         }
-        return RuntimeValue.computed(toBigDecimal(left).add(toBigDecimal(right)));
+        return NumericArithmetic.add(left, right);
     }
 
     static RuntimeValue subtract(RuntimeValue left, RuntimeValue right) {
         ensurePresent(left);
         ensurePresent(right);
-        return RuntimeValue.computed(toBigDecimal(left).subtract(toBigDecimal(right)));
+        return NumericArithmetic.subtract(left, right);
     }
 
     static RuntimeValue multiply(RuntimeValue left, RuntimeValue right) {
         ensurePresent(left);
         ensurePresent(right);
-        return RuntimeValue.computed(toBigDecimal(left).multiply(toBigDecimal(right)));
+        return NumericArithmetic.multiply(left, right);
     }
 
     static RuntimeValue divide(RuntimeValue left, RuntimeValue right) {
         ensurePresent(left);
         ensurePresent(right);
-        BigDecimal divisor = toBigDecimal(right);
-        if (divisor.compareTo(BigDecimal.ZERO) == 0) {
-            throw new ArithmeticException("除数不能为0");
-        }
-        return RuntimeValue.computed(toBigDecimal(left).divide(divisor, DIVISION_CONTEXT));
+        return NumericArithmetic.divide(left, right);
     }
 
     // ----- 扩展算术与位运算 -----
     static RuntimeValue remainder(RuntimeValue left, RuntimeValue right) {
         ensurePresent(left);
         ensurePresent(right);
-        BigDecimal divisor = toBigDecimal(right);
-        if (divisor.compareTo(BigDecimal.ZERO) == 0) {
-            throw new ArithmeticException("除数不能为0");
-        }
-        return RuntimeValue.computed(toBigDecimal(left).remainder(divisor));
+        return NumericArithmetic.remainder(left, right);
     }
 
     static RuntimeValue power(RuntimeValue left, RuntimeValue right) {
@@ -180,25 +172,7 @@ final class ExpressionRuntimeSupport {
 
     static RuntimeValue negate(RuntimeValue value) {
         ensurePresent(value);
-        Object raw = value.raw();
-        if (value.origin() == RuntimeValue.Origin.LITERAL) {
-            if (raw instanceof Integer) {
-                return RuntimeValue.literal(-(Integer) raw);
-            }
-            if (raw instanceof Long) {
-                return RuntimeValue.literal(-(Long) raw);
-            }
-            if (raw instanceof Float) {
-                return RuntimeValue.literal(-(Float) raw);
-            }
-            if (raw instanceof Double) {
-                return RuntimeValue.literal(-(Double) raw);
-            }
-            if (raw instanceof BigDecimal) {
-                return RuntimeValue.literal(((BigDecimal) raw).negate());
-            }
-        }
-        return RuntimeValue.computed(toBigDecimal(value).negate());
+        return NumericArithmetic.negate(value);
     }
 
     static RuntimeValue positive(RuntimeValue value) {
@@ -208,6 +182,42 @@ final class ExpressionRuntimeSupport {
 
     static RuntimeValue logicalNot(RuntimeValue value) {
         return RuntimeValue.computed(!toStandaloneBoolean(value));
+    }
+
+    static RuntimeValue indexAccess(RuntimeValue target, RuntimeValue index) {
+        ensurePresent(target);
+        ensurePresent(index);
+        Object receiver = target.raw();
+        if (receiver == null) {
+            throw new IllegalArgumentException("下标访问失败: 目标对象为空");
+        }
+        if (receiver instanceof Map<?, ?>) {
+            return RuntimeValue.computed(((Map<?, ?>) receiver).get(index.raw()));
+        }
+
+        int position = toIndex(index);
+        if (receiver instanceof List<?>) {
+            List<?> list = (List<?>) receiver;
+            if (position < 0 || position >= list.size()) {
+                throw new IllegalArgumentException("下标越界: " + position);
+            }
+            return RuntimeValue.computed(list.get(position));
+        }
+        if (receiver.getClass().isArray()) {
+            int length = Array.getLength(receiver);
+            if (position < 0 || position >= length) {
+                throw new IllegalArgumentException("下标越界: " + position);
+            }
+            return RuntimeValue.computed(Array.get(receiver, position));
+        }
+        if (receiver instanceof CharSequence) {
+            CharSequence charSequence = (CharSequence) receiver;
+            if (position < 0 || position >= charSequence.length()) {
+                throw new IllegalArgumentException("下标越界: " + position);
+            }
+            return RuntimeValue.computed(charSequence.charAt(position));
+        }
+        throw new IllegalArgumentException("类型不支持下标访问: " + receiver.getClass().getSimpleName());
     }
 
     // ----- 布尔真值与比较 -----
@@ -505,6 +515,22 @@ final class ExpressionRuntimeSupport {
             return Boolean.toString(toStandaloneBoolean(value));
         }
         return String.valueOf(raw);
+    }
+
+    static Object toEvaluateResult(RuntimeValue value) {
+        return value.isMissingVariable() ? null : value.raw();
+    }
+
+    private static int toIndex(RuntimeValue index) {
+        Object raw = index.raw();
+        if (!(raw instanceof Number) && !(raw instanceof CharSequence)) {
+            throw new IllegalArgumentException("下标必须是整数: " + raw);
+        }
+        try {
+            return toBigDecimal(index).stripTrailingZeros().intValueExact();
+        } catch (IllegalArgumentException | ArithmeticException exception) {
+            throw new IllegalArgumentException("下标必须是整数: " + raw, exception);
+        }
     }
 
     private static void ensurePresent(RuntimeValue value) {

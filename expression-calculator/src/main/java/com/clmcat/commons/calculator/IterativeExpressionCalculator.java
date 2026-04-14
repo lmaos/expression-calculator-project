@@ -47,4 +47,11 @@ public class IterativeExpressionCalculator implements ExpressionCalculator {
         ExpressionRuntimeSupport.ensureWithinDepthLimit(required, maxDepth);
         return IterativeBooleanExpressionEngine.evaluate(required, varMap);
     }
+
+    @Override
+    public Object evaluate(String text, Map<String, Object> varMap) {
+        String required = ExpressionRuntimeSupport.requireText(text);
+        ExpressionRuntimeSupport.ensureWithinDepthLimit(required, maxDepth);
+        return ExpressionRuntimeSupport.toEvaluateResult(IterativeExpressionEngine.evaluateAny(required, varMap));
+    }
 }

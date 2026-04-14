@@ -102,6 +102,32 @@ final class ExpressionTextSupport {
         return new ParsedToken<>(value, index);
     }
 
+    static ParsedToken<Object> parseSingleQuotedLiteral(String text, int start) {
+        if (start >= text.length() || text.charAt(start) != '\'') {
+            throw new IllegalArgumentException("引号字面量格式错误");
+        }
+        StringBuilder builder = new StringBuilder();
+        int index = start + 1;
+        while (index < text.length()) {
+            char current = text.charAt(index);
+            if (current == '\'') {
+                Object value = builder.length() == 1 ? Character.valueOf(builder.charAt(0)) : builder.toString();
+                return new ParsedToken<>(value, index + 1);
+            }
+            if (current == '\\') {
+                if (index + 1 >= text.length()) {
+                    throw new IllegalArgumentException("引号字面量格式错误");
+                }
+                builder.append(parseEscape(text.charAt(index + 1)));
+                index += 2;
+                continue;
+            }
+            builder.append(current);
+            index++;
+        }
+        throw new IllegalArgumentException("引号字面量格式错误");
+    }
+
     // ----- 字符串与字符字面量 -----
     static ParsedToken<String> parseStringLiteral(String text, int start) {
         if (start >= text.length() || text.charAt(start) != '"') {
@@ -129,31 +155,33 @@ final class ExpressionTextSupport {
     }
 
     static ParsedToken<Character> parseCharacterLiteral(String text, int start) {
-        if (start >= text.length() || text.charAt(start) != '\'') {
+        ParsedToken<Object> token = parseSingleQuotedLiteral(text, start);
+        if (!(token.value() instanceof Character)) {
             throw new IllegalArgumentException("字符字面量格式错误");
+        }
+        return new ParsedToken<>((Character) token.value(), token.nextIndex());
+    }
+
+    static ParsedToken<String> parseCastType(String text, int start, ConverterRegistry registry) {
+        if (start >= text.length() || text.charAt(start) != '(') {
+            return null;
         }
         int index = start + 1;
-        if (index >= text.length()) {
-            throw new IllegalArgumentException("字符字面量格式错误");
-        }
-
-        char value;
-        char current = text.charAt(index);
-        if (current == '\\') {
-            if (index + 1 >= text.length()) {
-                throw new IllegalArgumentException("字符字面量格式错误");
-            }
-            value = parseEscape(text.charAt(index + 1));
-            index += 2;
-        } else {
-            value = current;
+        while (index < text.length() && Character.isWhitespace(text.charAt(index))) {
             index++;
         }
-
-        if (index >= text.length() || text.charAt(index) != '\'') {
-            throw new IllegalArgumentException("字符字面量格式错误");
+        if (index >= text.length() || !isIdentifierStart(text.charAt(index))) {
+            return null;
         }
-        return new ParsedToken<>(value, index + 1);
+        ParsedToken<String> identifier = parseIdentifier(text, index);
+        index = identifier.nextIndex();
+        while (index < text.length() && Character.isWhitespace(text.charAt(index))) {
+            index++;
+        }
+        if (index >= text.length() || text.charAt(index) != ')' || !registry.contains(identifier.value())) {
+            return null;
+        }
+        return new ParsedToken<>(identifier.value(), index + 1);
     }
 
     // ----- 结构边界扫描：跳过引号、括号和参数分隔 -----
@@ -203,12 +231,83 @@ final class ExpressionTextSupport {
         throw new IllegalArgumentException("括号不匹配");
     }
 
+    static int findMatchingSquareBracket(String text, int openIndex) {
+        int level = 0;
+        for (int index = openIndex; index < text.length(); index++) {
+            char current = text.charAt(index);
+            if (isQuote(current)) {
+                index = skipQuotedLiteral(text, index);
+                continue;
+            }
+            if (current == '[') {
+                level++;
+            } else if (current == ']') {
+                level--;
+                if (level == 0) {
+                    return index;
+                }
+                if (level < 0) {
+                    throw new IllegalArgumentException("方括号不匹配");
+                }
+            }
+        }
+        throw new IllegalArgumentException("方括号不匹配");
+    }
+
+    static boolean containsTopLevelLogicalOperators(String text) {
+        int parenthesisLevel = 0;
+        int bracketLevel = 0;
+        for (int index = 0; index < text.length(); index++) {
+            char current = text.charAt(index);
+            if (isQuote(current)) {
+                index = skipQuotedLiteral(text, index);
+                continue;
+            }
+            if (current == '(') {
+                parenthesisLevel++;
+                continue;
+            }
+            if (current == ')') {
+                parenthesisLevel--;
+                if (parenthesisLevel < 0) {
+                    throw new IllegalArgumentException("括号不匹配");
+                }
+                continue;
+            }
+            if (current == '[') {
+                bracketLevel++;
+                continue;
+            }
+            if (current == ']') {
+                bracketLevel--;
+                if (bracketLevel < 0) {
+                    throw new IllegalArgumentException("方括号不匹配");
+                }
+                continue;
+            }
+            if (parenthesisLevel == 0 && bracketLevel == 0
+                    && index + 1 < text.length()
+                    && ((current == '&' && text.charAt(index + 1) == '&')
+                    || (current == '|' && text.charAt(index + 1) == '|'))) {
+                return true;
+            }
+        }
+        if (parenthesisLevel != 0) {
+            throw new IllegalArgumentException("括号不匹配");
+        }
+        if (bracketLevel != 0) {
+            throw new IllegalArgumentException("方括号不匹配");
+        }
+        return false;
+    }
+
     static List<String> splitArguments(String argumentText) {
         if (argumentText.trim().isEmpty()) {
             return Collections.emptyList();
         }
         List<String> arguments = new ArrayList<>();
-        int level = 0;
+        int parenthesisLevel = 0;
+        int bracketLevel = 0;
         int start = 0;
         for (int index = 0; index < argumentText.length(); index++) {
             char current = argumentText.charAt(index);
@@ -217,19 +316,29 @@ final class ExpressionTextSupport {
                 continue;
             }
             if (current == '(') {
-                level++;
+                parenthesisLevel++;
             } else if (current == ')') {
-                level--;
-                if (level < 0) {
+                parenthesisLevel--;
+                if (parenthesisLevel < 0) {
                     throw new IllegalArgumentException("括号不匹配");
                 }
-            } else if (current == ',' && level == 0) {
+            } else if (current == '[') {
+                bracketLevel++;
+            } else if (current == ']') {
+                bracketLevel--;
+                if (bracketLevel < 0) {
+                    throw new IllegalArgumentException("方括号不匹配");
+                }
+            } else if (current == ',' && parenthesisLevel == 0 && bracketLevel == 0) {
                 arguments.add(argumentText.substring(start, index).trim());
                 start = index + 1;
             }
         }
-        if (level != 0) {
+        if (parenthesisLevel != 0) {
             throw new IllegalArgumentException("括号不匹配");
+        }
+        if (bracketLevel != 0) {
+            throw new IllegalArgumentException("方括号不匹配");
         }
         arguments.add(argumentText.substring(start).trim());
         return arguments;

@@ -54,10 +54,12 @@ registry.registerBinary("pow", 9, Associativity.RIGHT, (left, right) -> {
 After registration:
 
 ```java
+Map<String, Object> emptyVariables = Collections.emptyMap();
+
 ExpressionCalculator calculator = new IterativeExpressionCalculator();
-calculator.calculation("2 ** 3 ** 2", Map.of());  // "512"
-calculator.calculation("2 pow 3", Map.of());      // "8"
-calculator.calculation("10 ^ 12", Map.of());      // "6"
+calculator.calculation("2 ** 3 ** 2", emptyVariables);  // "512"
+calculator.calculation("2 pow 3", emptyVariables);      // "8"
+calculator.calculation("10 ^ 12", emptyVariables);      // "6"
 ```
 
 ## When to Use Custom Operators
@@ -71,3 +73,23 @@ calculator.calculation("10 ^ 12", Map.of());      // "6"
 - `**` is right-associative, so `2 ** 3 ** 2` parses as `2 ** (3 ** 2)`.
 - `^` is reserved for xor, so it should not be used as a power alias unless you register it manually yourself.
 - `<<<` is intentionally kept as a left-shift alias to preserve DSL symmetry.
+
+## Type Converters
+
+Custom casts are managed by `ConverterRegistry`:
+
+```java
+ConverterRegistry registry = ConverterRegistry.getInstance();
+registry.register("wrapped", value -> value == null ? null : "[" + value + "]");
+
+ExpressionCalculator calculator = new IterativeExpressionCalculator();
+Object result = calculator.evaluate("(wrapped)123", Collections.emptyMap());  // "[123]"
+```
+
+Use `resetToDefaults()` in tests after mutating converter registrations, just like operator registrations.
+
+## Operational Advice
+
+- Treat `OperatorRegistry` and `ConverterRegistry` as application-level singletons: register custom behavior during startup, not per request.
+- Method lookup is already cached by `BeanUtils`, and cast operators are cached by `CastOperator`, so the main hot path is still parsing and evaluation.
+- If you extend the DSL further, prefer reusing `ExpressionTextSupport` for any new delimiter or postfix syntax so quote-aware scanning stays consistent.

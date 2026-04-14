@@ -42,4 +42,11 @@ public class RecursiveExpressionCalculator implements ExpressionCalculator {
         ExpressionRuntimeSupport.ensureWithinDepthLimit(required, maxDepth);
         return RecursiveExpressionEngine.evaluateForComparison(required, varMap);
     }
+
+    @Override
+    public Object evaluate(String text, Map<String, Object> varMap) {
+        String required = ExpressionRuntimeSupport.requireText(text);
+        ExpressionRuntimeSupport.ensureWithinDepthLimit(required, maxDepth);
+        return ExpressionRuntimeSupport.toEvaluateResult(RecursiveExpressionEngine.evaluateValue(required, varMap));
+    }
 }
