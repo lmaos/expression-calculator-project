@@ -14,7 +14,7 @@ import java.util.Map;
  * 1. 数字 / null / true / false / 变量
  * 2. 一元运算、二元运算、比较运算
  * 3. 分组括号
- * 4. 方法调用与链式方法调用
+ * 4. 公开字段/方法访问与链式调用
  * </pre>
  *
  * <p>核心思路仍然是“双栈求值”，但运算符本身不再写死在枚举里，
@@ -97,7 +97,7 @@ final class IterativeExpressionEngine {
                 }
 
                 if (peek('.')) {
-                    applyMethodCall();
+                    applyMemberAccess();
                     continue;
                 }
                 if (peek('[')) {
@@ -165,24 +165,31 @@ final class IterativeExpressionEngine {
             return RuntimeValue.variable(variables.get(identifier));
         }
 
-        private void applyMethodCall() {
+        private void applyMemberAccess() {
             if (values.isEmpty()) {
                 throw new IllegalArgumentException("表达式格式错误");
             }
             match('.');
-            String methodName = parseIdentifier();
+            String memberName = parseIdentifier();
             skipWhitespace();
-            if (!match('(')) {
-                throw new IllegalArgumentException("非法字符: .");
+            RuntimeValue receiverValue = values.pop();
+            if (match('(')) {
+                int argumentStart = position;
+                int argumentEnd = findClosingParenthesis(argumentStart - 1);
+                List<RuntimeValue> arguments = parseArguments(argumentStart, argumentEnd);
+                position = argumentEnd + 1;
+
+                values.push(ExpressionRuntimeSupport.invokeMethod(receiverValue, memberName, arguments));
+                return;
             }
 
-            int argumentStart = position;
-            int argumentEnd = findClosingParenthesis(argumentStart - 1);
-            List<RuntimeValue> arguments = parseArguments(argumentStart, argumentEnd);
-            position = argumentEnd + 1;
+            if (receiverValue.isMissingVariable()) {
+                // 变量不存在时，允许访问成员以支持链式调用（例如 a.b.c.d），但只能访问成员而不能调用方法。
+                values.push(parseVariable(receiverValue.missingVariableName() + "." + memberName));
+                return;
+            }
 
-            RuntimeValue receiverValue = values.pop();
-            values.push(ExpressionRuntimeSupport.invokeMethod(receiverValue, methodName, arguments));
+            values.push(ExpressionRuntimeSupport.accessField(receiverValue, memberName));
         }
 
         private void applyIndexAccess() {

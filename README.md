@@ -1,6 +1,6 @@
 # expression-calculator
 
-`expression-calculator` 是一个面向 Java 的表达式计算库，支持算术、比较、逻辑、位运算、变量、字面量和方法调用。
+`expression-calculator` 是一个面向 Java 的表达式计算库，支持算术、比较、逻辑、位运算、变量、字面量，以及公开字段/方法访问。
 
 ## 能力
 
@@ -9,7 +9,7 @@
 - 支持布尔求值：`compareCalculation(String, Map<String, Object>)`
 - 支持原始值求值：`evaluate(String, Map<String, Object>)`
 - 支持模板格式化：`DefaultExpressionFormat` / `ExpressionFormat`
-- 支持变量、字符串/字符字面量、括号和链式方法调用
+- 支持变量、字符串/字符字面量、括号、公开字段访问和链式方法调用
 - 支持 `[]` 下标访问与 `(type)` 类型转换
 - 支持默认运算符：`+ - * / % ** ! ~ << >> >>> <<< & | ^`
 - 整数算术结果会尽量保留 `Integer` / `Long`，非整数仍使用 `BigDecimal`
@@ -52,10 +52,23 @@ Object bool = calculator.evaluate("a < b || c == 3", variables);// Boolean.TRUE
 
 ```java
 ExpressionFormat formatter = new DefaultExpressionFormat(calculator);
+variables.put("numbers", new String[] {"a", "b", "c"});
 
 String text = formatter.format("1 + 2 = ${1 + 2}", variables);  // 1 + 2 = 3
 String escaped = formatter.format("\\${a + b}", variables);     // ${a + b}
 String custom = formatter.format("#{a + b}", "#{?}", variables);// 3
+String fieldText = formatter.format("len=${numbers.length}", variables); // len=3
+```
+
+`ExpressionFormat.format(...)` 始终返回 `String`，即使占位表达式的原始值是数字或布尔值。
+
+### 公开字段与方法访问
+
+```java
+variables.put("numbers", new String[] {"a", "b", "c"});
+
+Object length = calculator.evaluate("numbers.length", variables); // Integer(3)
+String value = calculator.calculation("\"copilot\".length()", variables); // "7"
 ```
 
 ### 下标访问与类型转换

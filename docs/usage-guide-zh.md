@@ -1,14 +1,14 @@
 # 表达式计算器使用说明（中文）
 
 ## 1. 概述
-`expression-calculator` 提供统一接口用于带变量、方法调用的算术与逻辑表达式求值，适用于业务规则、配置、数据校验等场景。
+`expression-calculator` 提供统一接口用于带变量、公开字段/方法访问的算术与逻辑表达式求值，适用于业务规则、配置、数据校验等场景。
 
 ### 主要特性
 - 统一接口：`ExpressionCalculator`
 - 两种实现：
   - `RecursiveExpressionCalculator`：递归，结构直观，适合教学和简单表达式
   - `IterativeExpressionCalculator`：显式栈，适合深层嵌套和生产环境
-- 支持算术、比较、逻辑运算、位运算、方法调用、下标访问、类型转换
+- 支持算术、比较、逻辑运算、位运算、公开字段/方法访问、下标访问、类型转换
 - 支持 `evaluate(...)` 原始值求值与 `ExpressionFormat` 模板格式化
 - 防御恶意或过深表达式
 
@@ -50,11 +50,15 @@ ExpressionCalculator calc = new IterativeExpressionCalculator(100); // 最大层
 ### 3.4 模板格式化
 ```java
 ExpressionFormat formatter = new DefaultExpressionFormat(calc);
+vars.put("items", new String[] {"a", "b", "c"});
 
 String text = formatter.format("1 + 2 = ${1 + 2}", vars);  // 1 + 2 = 3
 String escaped = formatter.format("\\${a + b}", vars);     // ${a + b}
 String custom = formatter.format("#{a + b}", "#{?}", vars);// 3
+String fieldText = formatter.format("len=${items.length}", vars); // len=3
 ```
+
+说明：`ExpressionFormat.format(...)` 总是返回 `String`，即使占位表达式的原始值是数字、布尔值或对象。
 
 ## 4. 支持的表达式类型
 
@@ -66,7 +70,7 @@ String custom = formatter.format("#{a + b}", "#{?}", vars);// 3
 - 双引号字符串 `"text"`
 - 单引号字面量：单字符按 `Character` 处理，多字符按字符串处理，例如 `'A'`、`'name_'`
 - 变量引用
-- 方法调用（如 `str.length()`）
+- 公开字段/方法访问（如 `array.length`、`str.length()`）
 
 #### 示例
 ```java
@@ -152,8 +156,8 @@ Object wrapped = calc.evaluate("(wrapped)123", vars); // "[123]"
 直接变量会按上表参与真值判断，因此非 null 的数字/字符串/字符变量也会被视为 true。字面量和计算结果仍建议显式比较（如 `a > 0`，而不是 `a + b`）。
 缺失变量若不参与 `null` 等值比较，仍会报 `变量不存在`。
 
-## 6. 表达式中的方法调用
-- 支持无参、有参、链式方法调用
+## 6. 表达式中的公开字段与方法调用
+- 支持公开实例字段、数组 `length`、无参/有参方法与链式调用
 - 变量中的数字会转为 `BigDecimal` 参与方法匹配
 - 直接字面量保留原类型
 - 方法参数支持字符串/字符字面量
@@ -169,6 +173,23 @@ calc.calculation("\"a,b\".replace(\",\", \";\")", vars); // "a;b"
 ```
 
 ```java
+public static final class Holder {
+    public final String name;
+
+    public Holder(String name) {
+        this.name = name;
+    }
+}
+
+vars.put("holder", new Holder("Copilot"));
+vars.put("items", new String[] {"a", "b", "c"});
+
+calc.evaluate("holder.name", vars);         // "Copilot"
+calc.evaluate("items.length", vars);        // Integer(3)
+calc.calculation("holder.name.length()", vars); // "7"
+```
+
+```java
 calc.calculation("10 & 12", vars);      // "8"
 calc.calculation("2 ** 3", vars);       // "8"
 calc.calculation("3 <<< 2", vars);      // "12"
@@ -177,7 +198,7 @@ calc.compareCalculation("(10 ^ 12) == 6", vars); // true
 
 ## 7. 计算边界与防御能力
 - 可配置最大表达式层级（构造器参数）
-- 防御括号不匹配、非法数字、缺失变量、除零、非法方法调用等
+- 防御括号不匹配、非法数字、缺失变量、除零、非法成员访问/方法调用等
 - 引号内的 `,`、`&&`、`||`、括号不会被误判为结构符号
 - 单个 `&`、`|` 不会误吞 `&&`、`||`
 - 迭代实现可防止深度递归导致栈溢出
@@ -192,11 +213,13 @@ calc.compareCalculation("(10 ^ 12) == 6", vars); // true
 | 缺失变量         | `变量不存在: x`                |
 | 除零             | `除数不能为0`                  |
 | 非整数位运算     | `位运算只支持整数: x`          |
+| 字段不存在       | `字段访问失败，不存在公开字段` |
+| 字段对象为null   | `字段访问失败: 对象为空`       |
 | 方法对象为null   | `方法调用失败: 对象为null`     |
 | 方法类型不匹配   | `方法调用失败，参数类型不匹配` |
 
 ## 9. 适用范围
-- 适用于带变量、方法调用、深层嵌套的算术与逻辑表达式
+- 适用于带变量、公开字段/方法访问、深层嵌套的算术与逻辑表达式
 - 不适合完整脚本或非Java类型
 
 ## 10. 进阶示例

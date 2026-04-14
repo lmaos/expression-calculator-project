@@ -1,5 +1,6 @@
 package com.clmcat.commons.calculator;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.lang.reflect.Modifier;
 import java.util.ArrayList;
@@ -15,6 +16,8 @@ public class BeanUtils {
 
     /** 缓存每个类扫描到的 public 方法，避免重复反射。 */
     private final static Map<Class<?>, Map<String, List<Method>>> methodCache = new ConcurrentHashMap<>();
+    /** 缓存每个类扫描到的 public 字段，避免重复反射。 */
+    private final static Map<Class<?>, Map<String, Field>> fieldCache = new ConcurrentHashMap<>();
 
     /** 基本类型与包装类的映射，用于宽松重载匹配。 */
     private final static Map<Class<?>, Class<?>> primitiveWrapperMap = new HashMap<>();
@@ -38,25 +41,45 @@ public class BeanUtils {
         return methodCache.computeIfAbsent(clazz, BeanUtils::collectPublicMethods);
     }
 
+    /**
+     * 获取当前类及父类链上所有可读取的 public 实例字段。
+     *
+     * @param clazz 目标类型
+     * @return 字段名到字段对象的映射
+     */
+    public static Map<String, Field> findPublicFields(Class<?> clazz) {
+        return fieldCache.computeIfAbsent(clazz, BeanUtils::collectPublicFields);
+    }
+
     private static Map<String, List<Method>> collectPublicMethods(Class<?> clazz) {
         Map<String, List<Method>> map = new HashMap<>();
+        Method[] methods = clazz.getMethods();
+        for (Method method : methods) {
+            int modifiers = method.getModifiers();
+            if (Modifier.isPublic(modifiers) && !Modifier.isStatic(modifiers)) {
+                String methodName = method.getName();
+                List<Method> methodList = map.get(methodName);
+                if (methodList == null) {
+                    methodList = new ArrayList<>();
+                    map.put(methodName, methodList);
+                }
+                methodList.add(method);
+            }
+        }
+        return map;
+    }
+
+    private static Map<String, Field> collectPublicFields(Class<?> clazz) {
+        Map<String, Field> map = new HashMap<>();
         Class<?> current = clazz;
-        // 逐层向上扫描，保留所有可见的实例方法，供后续重载匹配使用。
         while (current != null && current != Object.class) {
-            Method[] methods = current.getDeclaredMethods();
-            for (Method method : methods) {
-                int modifiers = method.getModifiers();
+            Field[] fields = current.getDeclaredFields();
+            for (Field field : fields) {
+                int modifiers = field.getModifiers();
                 if (Modifier.isPublic(modifiers)
                         && !Modifier.isStatic(modifiers)
-                        && !Modifier.isAbstract(modifiers)
-                        && !Modifier.isNative(modifiers)) {
-                    String methodName = method.getName();
-                    List<Method> methodList = map.get(methodName);
-                    if (methodList == null) {
-                        methodList = new ArrayList<>();
-                        map.put(methodName, methodList);
-                    }
-                    methodList.add(method);
+                        && !map.containsKey(field.getName())) {
+                    map.put(field.getName(), field);
                 }
             }
             current = current.getSuperclass();

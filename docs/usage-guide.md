@@ -2,7 +2,7 @@
 
 ## 1. 项目概述
 
-`expression-calculator` 提供统一接口 `ExpressionCalculator`，用于：
+`expression-calculator` 提供统一接口 `ExpressionCalculator`，用于带变量、公开字段/方法访问的表达式求值：
 
 1. **calculation**：计算算术表达式，返回字符串结果
 2. **compareCalculation**：计算比较/逻辑表达式，返回布尔结果
@@ -61,7 +61,7 @@ ExpressionCalculator recursive = new RecursiveExpressionCalculator(100);
 - 一元正负号 `+x -x`
 - 字符串字面量 `"text"`、字符字面量 `'A'`
 - 变量引用
-- 方法调用
+- 公开字段/方法访问
 
 ### 示例
 
@@ -148,14 +148,15 @@ boolean r3 = calculator.compareCalculation("(10 ^ 12) == 6", variables);
 - 缺失变量若不参与 `null` 等值比较，仍按“变量不存在”报错
 - 例如 `compareCalculation("a + b", variables)` 会报错，因为缺少比较运算符
 
-## 7. 方法调用
+## 7. 公开字段与方法调用
 
 支持：
 
-1. 无参方法调用
-2. 有参方法调用
-3. 链式方法调用
-4. 字符串/字符字面量参数
+1. 公开实例字段访问
+2. 数组 `length` 访问
+3. 无参/有参方法调用
+4. 链式调用
+5. 字符串/字符字面量参数
 
 ### 无参方法
 
@@ -163,6 +164,25 @@ boolean r3 = calculator.compareCalculation("(10 ^ 12) == 6", variables);
 variables.put("str", "Hello World");
 calculator.calculation("str.length()", variables);
 // "11"
+```
+
+```java
+public static final class Holder {
+    public final String name;
+
+    public Holder(String name) {
+        this.name = name;
+    }
+}
+
+variables.put("holder", new Holder("Copilot"));
+variables.put("items", new String[] {"a", "b", "c"});
+
+calculator.evaluate("holder.name", variables);
+// "Copilot"
+
+calculator.evaluate("items.length", variables);
+// Integer(3)
 ```
 
 ### 有参方法
@@ -235,7 +255,7 @@ calculator.calculation("num1.add(55)", variables);
 - 括号不匹配
 - 缺失变量
 - 除零
-- 非法方法调用
+- 非法成员访问/方法调用
 
 其中 `IterativeExpressionCalculator` 对深层输入的防御能力更强。
 
@@ -250,6 +270,8 @@ calculator.calculation("num1.add(55)", variables);
 | 缺失变量 | `变量不存在: x` |
 | 除零 | `除数不能为0` |
 | 非整数位运算 | `位运算只支持整数: x` |
+| 字段不存在 | `字段访问失败，不存在公开字段: Xxx.field` |
+| 字段对象为空 | `字段访问失败: 对象为空, 字段: xxx` |
 | 方法对象为空 | `方法调用失败: 对象为空, 方法: xxx` |
 | 方法类型不匹配 | `方法调用失败，参数类型不匹配: Xxx.method` |
 

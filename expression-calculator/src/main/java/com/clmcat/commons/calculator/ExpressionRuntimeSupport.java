@@ -2,8 +2,10 @@ package com.clmcat.commons.calculator;
 
 import java.io.File;
 import java.lang.reflect.Array;
+import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
+import java.lang.reflect.Modifier;
 import java.math.BigDecimal;
 import java.math.MathContext;
 import java.util.Collection;
@@ -369,7 +371,30 @@ final class ExpressionRuntimeSupport {
         return false;
     }
 
-    // ----- 方法调用与重载匹配 -----
+    // ----- 公开字段读取、方法调用与重载匹配 -----
+    static RuntimeValue accessField(RuntimeValue receiverValue, String fieldName) {
+        ensurePresent(receiverValue);
+        Object receiver = receiverValue.raw();
+        if (receiver == null) {
+            throw new IllegalArgumentException("字段访问失败: 对象为空, 字段: " + fieldName);
+        }
+        if ("length".equals(fieldName) && receiver.getClass().isArray()) {
+            return RuntimeValue.computed(Array.getLength(receiver));
+        }
+        Field field = BeanUtils.findPublicFields(receiver.getClass()).get(fieldName);
+        if (field == null) {
+            throw new IllegalArgumentException(
+                    "字段访问失败，不存在公开字段: " + receiver.getClass().getSimpleName() + "." + fieldName);
+        }
+        try {
+            return RuntimeValue.computed(field.get(receiver));
+        } catch (IllegalAccessException exception) {
+            throw new IllegalArgumentException(
+                    "字段访问失败: " + receiver.getClass().getSimpleName() + "." + fieldName,
+                    exception);
+        }
+    }
+
     static RuntimeValue invokeMethod(RuntimeValue receiverValue, String methodName, List<RuntimeValue> arguments) {
         ensurePresent(receiverValue);
         Object receiver = receiverValue.raw();
@@ -381,6 +406,7 @@ final class ExpressionRuntimeSupport {
             throw new IllegalArgumentException("方法调用失败，参数类型不匹配: " + receiver.getClass().getSimpleName() + "."
                     + methodName);
         }
+        method = findInvocableMethod(receiver.getClass(), method);
         Object[] converted = convertArguments(method, arguments);
         try {
             return RuntimeValue.computed(method.invoke(receiver, converted));
@@ -424,12 +450,77 @@ final class ExpressionRuntimeSupport {
                 }
                 totalScore += score;
             }
+            if (!isReflectivelyAccessible(method)) {
+                totalScore += 100;
+            }
             if (matched && totalScore < bestScore) {
                 bestScore = totalScore;
                 bestMatch = method;
             }
         }
         return bestMatch;
+    }
+
+    private static boolean isReflectivelyAccessible(Method method) {
+        Class<?> declaringClass = method.getDeclaringClass();
+        return declaringClass.isInterface() || Modifier.isPublic(declaringClass.getModifiers());
+    }
+
+    private static Method findInvocableMethod(Class<?> receiverType, Method method) {
+        if (isReflectivelyAccessible(method)) {
+            return method;
+        }
+        Method accessibleMethod = findAccessibleMethod(receiverType, method.getName(), method.getParameterTypes());
+        return accessibleMethod == null ? method : accessibleMethod;
+    }
+
+    private static Method findAccessibleMethod(Class<?> receiverType, String methodName, Class<?>[] parameterTypes) {
+        Method interfaceMethod = findAccessibleMethodOnInterfaces(receiverType, methodName, parameterTypes);
+        if (interfaceMethod != null) {
+            return interfaceMethod;
+        }
+        Class<?> current = receiverType;
+        while (current != null) {
+            if (Modifier.isPublic(current.getModifiers())) {
+                try {
+                    return current.getMethod(methodName, parameterTypes);
+                } catch (NoSuchMethodException exception) {
+                    // 继续向上查找
+                }
+            }
+            current = current.getSuperclass();
+        }
+        return null;
+    }
+
+    private static Method findAccessibleMethodOnInterfaces(Class<?> type, String methodName, Class<?>[] parameterTypes) {
+        if (type == null) {
+            return null;
+        }
+        for (Class<?> interfaceType : type.getInterfaces()) {
+            Method interfaceMethod = findAccessibleMethodInInterface(interfaceType, methodName, parameterTypes);
+            if (interfaceMethod != null) {
+                return interfaceMethod;
+            }
+        }
+        return findAccessibleMethodOnInterfaces(type.getSuperclass(), methodName, parameterTypes);
+    }
+
+    private static Method findAccessibleMethodInInterface(Class<?> interfaceType, String methodName, Class<?>[] parameterTypes) {
+        if (Modifier.isPublic(interfaceType.getModifiers())) {
+            try {
+                return interfaceType.getMethod(methodName, parameterTypes);
+            } catch (NoSuchMethodException exception) {
+                // 继续在父接口中查找
+            }
+        }
+        for (Class<?> parentInterface : interfaceType.getInterfaces()) {
+            Method interfaceMethod = findAccessibleMethodInInterface(parentInterface, methodName, parameterTypes);
+            if (interfaceMethod != null) {
+                return interfaceMethod;
+            }
+        }
+        return null;
     }
 
     private static int matchScore(RuntimeValue value, Class<?> parameterType) {

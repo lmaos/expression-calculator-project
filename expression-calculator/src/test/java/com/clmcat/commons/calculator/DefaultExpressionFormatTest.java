@@ -24,6 +24,24 @@ class DefaultExpressionFormatTest {
 
     private Map<String, Object> variables;
 
+    public static final class PublicChild {
+        public final int count;
+
+        private PublicChild(int count) {
+            this.count = count;
+        }
+    }
+
+    public static final class PublicHolder {
+        public final String name;
+        public final PublicChild child;
+
+        private PublicHolder(String name, PublicChild child) {
+            this.name = name;
+            this.child = child;
+        }
+    }
+
     static Stream<Arguments> calculators() {
         return Stream.of(
                 Arguments.of("recursive", new RecursiveExpressionCalculator()),
@@ -45,6 +63,8 @@ class DefaultExpressionFormatTest {
         variables.put("nullable", null);
         variables.put("flagA", true);
         variables.put("flagB", false);
+        variables.put("str", "123");
+        variables.put("holder", new PublicHolder("alpha", new PublicChild(7)));
     }
 
     @AfterEach
@@ -124,5 +144,22 @@ class DefaultExpressionFormatTest {
 
         assertEquals("[123]", calculator.evaluate("(wrapped)123", variables));
         assertEquals("value=[3]", formatter.format("value=${(wrapped)(map['count'])}", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    void shouldSupportPublicMethodAndFieldAccessOnObjects(String name, ExpressionCalculator calculator) {
+        ExpressionFormat formatter = new DefaultExpressionFormat(calculator);
+        assertEquals("3", formatter.format("${str.length()}", variables));
+        assertEquals("3", formatter.format("${list.size()}", variables));
+        assertEquals("3", formatter.format("${'123'.length()}", variables));
+        assertEquals("3", formatter.format("${array.length}", variables));
+        assertEquals("alpha", formatter.format("${holder.name}", variables));
+        assertEquals("7", formatter.format("${holder.child.count}", variables));
+        assertEquals("5", formatter.format("${holder.name.length()}", variables));
+
+        assertEquals(3, calculator.evaluate("array.length", variables));
+        assertEquals("alpha", calculator.evaluate("holder.name", variables));
+        assertEquals(7, calculator.evaluate("holder.child.count", variables));
     }
 }

@@ -27,6 +27,24 @@ class ExpressionCalculatorGeneratedLogicTest {
 
     private Map<String, Object> variables;
 
+    public static final class PublicChild {
+        public final int count;
+
+        private PublicChild(int count) {
+            this.count = count;
+        }
+    }
+
+    public static final class PublicHolder {
+        public final String name;
+        public final PublicChild child;
+
+        private PublicHolder(String name, PublicChild child) {
+            this.name = name;
+            this.child = child;
+        }
+    }
+
     static Stream<Arguments> calculators() {
         return Stream.of(
                 Arguments.of("recursive", new RecursiveExpressionCalculator()),
@@ -41,11 +59,13 @@ class ExpressionCalculatorGeneratedLogicTest {
         variables.put("a", 10);
         variables.put("isTrue", true);
         variables.put("str", "geekbang");
+        variables.put("array", new String[] {"a", "b", "c"});
         variables.put("num1", new BigDecimal("123"));
         variables.put("num2", 55);
         variables.put("items", Arrays.asList(1, 2, 3));
         variables.put("emptyItems", Collections.emptyList());
         variables.put("nullableFile", null);
+        variables.put("holder", new PublicHolder("hello", new PublicChild(5)));
 
         Path existingPath = tempDir.resolve("logic.txt");
         Files.write(existingPath, "ok".getBytes(StandardCharsets.UTF_8));
@@ -60,6 +80,10 @@ class ExpressionCalculatorGeneratedLogicTest {
         assertEquals("geek", calculator.calculation("str.substring(0, 4)", variables));
         assertEquals("178", calculator.calculation("num1.add(num2)", variables));
         assertEquals("true", calculator.calculation("file.exists()", variables));
+        assertEquals("3", calculator.calculation("array.length", variables));
+        assertEquals("hello", calculator.calculation("holder.name", variables));
+        assertEquals("5", calculator.calculation("holder.child.count", variables));
+        assertEquals("5", calculator.calculation("holder.name.length()", variables));
     }
 
     @ParameterizedTest(name = "{0}")

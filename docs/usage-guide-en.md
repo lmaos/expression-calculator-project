@@ -1,14 +1,14 @@
 # Expression Calculator Usage Guide (English)
 
 ## 1. Overview
-The `expression-calculator` library provides a unified interface for evaluating arithmetic and logical expressions with variables and method calls. It is suitable for business rule evaluation, configuration, and data validation scenarios.
+The `expression-calculator` library provides a unified interface for evaluating arithmetic and logical expressions with variables and public field/method access. It is suitable for business rule evaluation, configuration, and data validation scenarios.
 
 ### Main Features
 - Unified interface: `ExpressionCalculator`
 - Two implementations:
   - `RecursiveExpressionCalculator`: Recursive, readable, ideal for learning and simple expressions
   - `IterativeExpressionCalculator`: Stack-based, robust for deep nesting and production
-- Supports arithmetic, comparison, logical, bitwise operations, method calls, indexing, and casts
+- Supports arithmetic, comparison, logical, bitwise operations, public field/method access, indexing, and casts
 - Supports raw-value `evaluate(...)` and template formatting through `ExpressionFormat`
 - Defensive against malicious or overly deep expressions
 
@@ -50,11 +50,15 @@ Exceeding the limit throws: `Expression depth limit exceeded: 100`
 ### 3.4 Template Formatting
 ```java
 ExpressionFormat formatter = new DefaultExpressionFormat(calc);
+vars.put("items", new String[] {"a", "b", "c"});
 
 String text = formatter.format("1 + 2 = ${1 + 2}", vars);  // 1 + 2 = 3
 String escaped = formatter.format("\\${a + b}", vars);     // ${a + b}
 String custom = formatter.format("#{a + b}", "#{?}", vars);// 3
+String fieldText = formatter.format("len=${items.length}", vars); // len=3
 ```
+
+`ExpressionFormat.format(...)` always returns a `String`, even when the placeholder evaluates to a number, boolean, or object.
 
 ## 4. Supported Expression Types
 
@@ -66,7 +70,7 @@ String custom = formatter.format("#{a + b}", "#{?}", vars);// 3
 - Double-quoted strings `"text"`
 - Single-quoted literals: one character stays `Character`, multi-character text becomes `String`, such as `'A'` and `'name_'`
 - Variable references
-- Method calls (e.g., `str.length()`)
+- Public field/method access (for example `array.length` and `str.length()`)
 
 #### Example
 ```java
@@ -152,8 +156,8 @@ In `compareCalculation`, these types can be used directly as conditions:
 Direct variables use the rules above, so a non-null string/number/character variable is truthy. Literals and computed numeric/string/character expressions still need explicit comparisons (for example, `a > 0`, not `a + b`).
 Missing variables still raise a variable-not-found error outside of null equality checks.
 
-## 6. Method Calls in Expressions
-- Supports no-arg, arg, and chained method calls.
+## 6. Public Field and Method Access in Expressions
+- Supports public instance fields, array `length`, no-arg/arg methods, and chained access.
 - Variable numbers are converted to `BigDecimal` for method matching.
 - Direct literals retain their type.
 - String and character literals are valid method arguments.
@@ -169,6 +173,23 @@ calc.calculation("\"a,b\".replace(\",\", \";\")", vars); // "a;b"
 ```
 
 ```java
+public static final class Holder {
+    public final String name;
+
+    public Holder(String name) {
+        this.name = name;
+    }
+}
+
+vars.put("holder", new Holder("Copilot"));
+vars.put("items", new String[] {"a", "b", "c"});
+
+calc.evaluate("holder.name", vars);              // "Copilot"
+calc.evaluate("items.length", vars);             // Integer(3)
+calc.calculation("holder.name.length()", vars);  // "7"
+```
+
+```java
 calc.calculation("10 & 12", vars);      // "8"
 calc.calculation("2 ** 3", vars);       // "8"
 calc.calculation("3 <<< 2", vars);      // "12"
@@ -177,7 +198,7 @@ calc.compareCalculation("(10 ^ 12) == 6", vars); // true
 
 ## 7. Calculation Boundaries & Defensive Features
 - Configurable max expression depth (constructor parameter)
-- Handles unmatched parentheses, invalid numbers, missing variables, divide by zero, illegal method calls
+- Handles unmatched parentheses, invalid numbers, missing variables, divide by zero, and illegal field/method access
 - Delimiters inside quoted text (`,`, `&&`, `||`, parentheses) are ignored by structural scanners
 - Single `&` and `|` no longer steal the leading half of `&&` and `||`
 - Iterative implementation is robust against stack overflow from deep nesting
@@ -192,11 +213,13 @@ calc.compareCalculation("(10 ^ 12) == 6", vars); // true
 | Missing variable        | `Variable not found: x`                |
 | Divide by zero          | `Division by zero`                     |
 | Non-integral bitwise op | `位运算只支持整数: x`                  |
+| Missing public field    | `字段访问失败，不存在公开字段`        |
+| Null field target       | `字段访问失败: 对象为空`              |
 | Null method target      | `Method call failed: target is null`   |
 | Method type mismatch    | `Method call failed: type mismatch`    |
 
 ## 9. Application Scope
-- Suitable for arithmetic and logical expressions with variables, method calls, and deep nesting
+- Suitable for arithmetic and logical expressions with variables, public field/method access, and deep nesting
 - Not suitable for full scripting or non-Java types
 
 ## 10. Advanced Examples

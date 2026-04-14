@@ -172,23 +172,24 @@ final class RecursiveExpressionEngine {
             while (true) {
                 skipWhitespace();
                 if (match('.')) {
-                    String methodName = parseIdentifier();
+                    String memberName = parseIdentifier();
                     skipWhitespace();
-                    if (!match('(')) {
-                        throw new IllegalArgumentException("非法字符: .");
-                    }
-                    List<Node> arguments = new ArrayList<>();
-                    skipWhitespace();
-                    if (!match(')')) {
-                        do {
-                            arguments.add(parseExpression());
-                            skipWhitespace();
-                        } while (match(','));
+                    if (match('(')) {
+                        List<Node> arguments = new ArrayList<>();
+                        skipWhitespace();
                         if (!match(')')) {
-                            throw new IllegalArgumentException("括号不匹配");
+                            do {
+                                arguments.add(parseExpression());
+                                skipWhitespace();
+                            } while (match(','));
+                            if (!match(')')) {
+                                throw new IllegalArgumentException("括号不匹配");
+                            }
                         }
+                        node = new MethodCallNode(node, memberName, arguments);
+                    } else {
+                        node = new FieldAccessNode(node, memberName);
                     }
-                    node = new MethodCallNode(node, methodName, arguments);
                     continue;
                 }
                 if (match('[')) {
@@ -384,6 +385,21 @@ final class RecursiveExpressionEngine {
                 evaluatedArguments.add(argument.evaluate());
             }
             return ExpressionRuntimeSupport.invokeMethod(receiverValue, methodName, evaluatedArguments);
+        }
+    }
+
+    private static final class FieldAccessNode implements Node {
+        private final Node receiver;
+        private final String fieldName;
+
+        private FieldAccessNode(Node receiver, String fieldName) {
+            this.receiver = receiver;
+            this.fieldName = fieldName;
+        }
+
+        @Override
+        public RuntimeValue evaluate() {
+            return ExpressionRuntimeSupport.accessField(receiver.evaluate(), fieldName);
         }
     }
 }

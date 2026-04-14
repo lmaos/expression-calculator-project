@@ -87,4 +87,18 @@ class ExpressionCalculatorGeneratedEdgeCaseTest {
                 () -> calculator.calculation("nullable.toString()", variables));
         assertTrue(exception.getMessage().contains("对象为空"));
     }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    void shouldRejectInvalidPublicFieldAccess(String name, ExpressionCalculator calculator) {
+        IllegalArgumentException missingField = assertThrows(
+                IllegalArgumentException.class,
+                () -> calculator.calculation("file.missingField", variables));
+        assertTrue(missingField.getMessage().contains("字段访问失败"));
+
+        IllegalArgumentException nullReceiver = assertThrows(
+                IllegalArgumentException.class,
+                () -> calculator.calculation("nullable.value", variables));
+        assertTrue(nullReceiver.getMessage().contains("对象为空"));
+    }
 }
