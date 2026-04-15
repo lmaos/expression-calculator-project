@@ -10,10 +10,12 @@ import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.text.SimpleDateFormat;
 import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.TimeZone;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -50,6 +52,22 @@ class DefaultExpressionFormatTest {
         private PublicHolder(String name, PublicChild child) {
             this.name = name;
             this.child = child;
+        }
+    }
+
+    private static final class DateRenderConfig {
+        private final String pattern;
+        private final String timeZone;
+
+        private DateRenderConfig(String pattern, String timeZone) {
+            this.pattern = pattern;
+            this.timeZone = timeZone;
+        }
+
+        private String format(Date value) {
+            SimpleDateFormat format = new SimpleDateFormat(pattern);
+            format.setTimeZone(TimeZone.getTimeZone(timeZone));
+            return format.format(value);
         }
     }
 
@@ -228,5 +246,51 @@ class DefaultExpressionFormatTest {
         outputFormatRegistry.setOption(Date.class, "timeZone", "UTC");
 
         assertEquals("1970/01/01", formatter.format("${date}", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    void shouldAllowOutputFormatCallbackToOverrideReferenceOutput(String name, ExpressionCalculator calculator) {
+        ExpressionFormat formatter = new DefaultExpressionFormat(calculator);
+        OutputFormatRegistry localRegistry = outputFormatRegistry.copy();
+        localRegistry.setOption(Date.class, "pattern", "yyyyMMdd");
+        localRegistry.setOption(Date.class, "timeZone", "UTC");
+        localRegistry.setFormatCallback((value, context) -> {
+            if (!(value instanceof Date) || context.expressionKind() != OutputExpressionKind.REFERENCE) {
+                return null;
+            }
+            assertEquals("date", context.expression());
+            assertEquals("19700101", context.defaultFormattedValue());
+            assertEquals(Date.class, context.registeredType());
+            return "ref(" + context.defaultFormattedValue() + ")";
+        });
+
+        assertEquals("ref=ref(19700101)|expr=3", formatter.format("ref=${date}|expr=${1 + 2}", variables, localRegistry));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    void shouldSupportDynamicDateFormattingFromExpressionCallback(String name, ExpressionCalculator calculator) {
+        ExpressionFormat formatter = new DefaultExpressionFormat(calculator);
+        OutputFormatRegistry localRegistry = outputFormatRegistry.copy();
+        Map<String, Object> localVariables = new HashMap<String, Object>(variables);
+        localVariables.put("dateUtc", new Date(0L));
+        localVariables.put("dateChina", new Date(0L));
+
+        Map<String, DateRenderConfig> renderConfigs = new HashMap<String, DateRenderConfig>();
+        renderConfigs.put("dateUtc", new DateRenderConfig("yyyy-MM-dd HH:mm", "UTC"));
+        renderConfigs.put("dateChina", new DateRenderConfig("yyyy-MM-dd HH:mm", "GMT+08:00"));
+
+        localRegistry.setFormatCallback((value, context) -> {
+            if (!(value instanceof Date) || context.expressionKind() != OutputExpressionKind.REFERENCE) {
+                return null;
+            }
+            DateRenderConfig renderConfig = renderConfigs.get(context.expression());
+            return renderConfig == null ? null : renderConfig.format((Date) value);
+        });
+
+        assertEquals(
+                "zxx-1970-01-01 00:00-1970-01-01 08:00-zip",
+                formatter.format("zxx-${dateUtc}-${dateChina}-zip", localVariables, localRegistry));
     }
 }

@@ -20,10 +20,18 @@ public final class OutputFormatContext {
 
     private final Class<?> registeredType;
     private final Map<String, Object> options;
+    private final String expression;
+    private final OutputExpressionKind expressionKind;
 
-    OutputFormatContext(Class<?> registeredType, Map<String, Object> options) {
+    OutputFormatContext(
+            Class<?> registeredType,
+            Map<String, Object> options,
+            String expression,
+            OutputExpressionKind expressionKind) {
         this.registeredType = Objects.requireNonNull(registeredType, "registeredType");
         this.options = Collections.unmodifiableMap(new HashMap<String, Object>(options));
+        this.expression = expression;
+        this.expressionKind = expressionKind;
     }
 
     public Class<?> registeredType() {
@@ -32,6 +40,20 @@ public final class OutputFormatContext {
 
     public Map<String, Object> options() {
         return options;
+    }
+
+    /**
+     * 返回当前模板占位符中的表达式文本；当不是模板格式化链路触发时可能为 {@code null}。
+     */
+    public String expression() {
+        return expression;
+    }
+
+    /**
+     * 返回当前模板占位符的表达式类型；当不是模板格式化链路触发时可能为 {@code null}。
+     */
+    public OutputExpressionKind expressionKind() {
+        return expressionKind;
     }
 
     public boolean hasOption(String name) {

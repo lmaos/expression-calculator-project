@@ -90,14 +90,17 @@ String customText = formatter.format(
 旧的 2/3 参 `format(...)` 会继续走全局默认注册器；如需按次调用隔离配置，建议先使用 `copy()` 再传入。
 
 ### 公开字段与方法访问
+表达式可直接访问变量中的对象的公开字段和方法： (public fields and methods)
 
 ```java
 variables.put("numbers", new String[] {"a", "b", "c"});
 variables.put("return.value", "success");
+variables.put("str", "hello world");
 
 Object length = calculator.evaluate("numbers.length", variables); // Integer(3)
 String value = calculator.calculation("\"copilot\".length()", variables); // "7"
 Object dotted = calculator.evaluate("return.value", variables); // "success"
+Object substring = calculator.calculation("str.substring(0, 4)", variables);
 ```
 
 ### 下标访问与类型转换

@@ -100,8 +100,9 @@ public class DefaultExpressionFormat implements ExpressionFormat {
                 throw new IllegalArgumentException("未找到匹配的后缀: " + ruleParts.suffix);
             }
 
-            Object value = calculator.evaluate(text.substring(expressionStart, expressionEnd).trim(), safeVarMap);
-            String formatted = safeOutputRegistry.formatValue(value);
+            String expression = text.substring(expressionStart, expressionEnd).trim();
+            Object value = calculator.evaluate(expression, safeVarMap);
+            String formatted = safeOutputRegistry.formatValue(value, expression, detectExpressionKind(expression));
             result.append(formatted == null ? "" : formatted);
             position = expressionEnd + ruleParts.suffix.length();
             if (ruleParts.suffix.isEmpty()) {
@@ -120,6 +121,46 @@ public class DefaultExpressionFormat implements ExpressionFormat {
             throw new IllegalArgumentException("rule 必须且只能包含一个 '?'");
         }
         return new RuleParts(rule.substring(0, placeholderIndex), rule.substring(placeholderIndex + 1));
+    }
+
+    private static OutputExpressionKind detectExpressionKind(String expression) {
+        return isSimpleReference(expression) ? OutputExpressionKind.REFERENCE : OutputExpressionKind.EXPRESSION;
+    }
+
+    private static boolean isSimpleReference(String expression) {
+        if (expression == null || expression.isEmpty()) {
+            return false;
+        }
+        boolean expectIdentifierStart = true;
+        for (int index = 0; index < expression.length(); index++) {
+            char current = expression.charAt(index);
+            if (current == '.') {
+                if (expectIdentifierStart || index == expression.length() - 1) {
+                    return false;
+                }
+                expectIdentifierStart = true;
+                continue;
+            }
+            if (expectIdentifierStart) {
+                if (!isIdentifierStart(current)) {
+                    return false;
+                }
+                expectIdentifierStart = false;
+                continue;
+            }
+            if (!isIdentifierPart(current)) {
+                return false;
+            }
+        }
+        return !expectIdentifierStart;
+    }
+
+    private static boolean isIdentifierStart(char value) {
+        return value == '_' || value == '$' || Character.isLetter(value);
+    }
+
+    private static boolean isIdentifierPart(char value) {
+        return isIdentifierStart(value) || Character.isDigit(value);
     }
 
     private static final class RuleParts {
