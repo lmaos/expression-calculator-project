@@ -62,13 +62,42 @@ String fieldText = formatter.format("len=${numbers.length}", variables); // len=
 
 `ExpressionFormat.format(...)` 始终返回 `String`，即使占位表达式的原始值是数字或布尔值。
 
+如需按类型自定义模板输出，可传入带配置的输出注册器：
+
+```java
+OutputFormatRegistry registry = OutputFormatRegistry.getInstance().copy();
+registry.setOption(byte[].class, "mode", "base64");
+registry.setOption(File.class, "mode", "content");
+registry.setOption(File.class, "charset", "UTF-8");
+registry.setOption(Date.class, "pattern", "yyyyMMdd");
+registry.setOption(Date.class, "timeZone", "UTC");
+
+String customText = formatter.format(
+        "bytes=${payload}|file=${file}|date=${createdAt}",
+        "${?}",
+        variables,
+        registry);
+```
+
+内置输出选项：
+
+| 类型 | 可用选项 |
+| --- | --- |
+| `byte[]` | `mode=text/base64/hex`，`charset` |
+| `File` | `mode=path/name/content`，`charset` |
+| `Date` | `pattern`，`timeZone` |
+
+旧的 2/3 参 `format(...)` 会继续走全局默认注册器；如需按次调用隔离配置，建议先使用 `copy()` 再传入。
+
 ### 公开字段与方法访问
 
 ```java
 variables.put("numbers", new String[] {"a", "b", "c"});
+variables.put("return.value", "success");
 
 Object length = calculator.evaluate("numbers.length", variables); // Integer(3)
 String value = calculator.calculation("\"copilot\".length()", variables); // "7"
+Object dotted = calculator.evaluate("return.value", variables); // "success"
 ```
 
 ### 下标访问与类型转换

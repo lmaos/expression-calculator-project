@@ -60,6 +60,33 @@ String fieldText = formatter.format("len=${items.length}", vars); // len=3
 
 说明：`ExpressionFormat.format(...)` 总是返回 `String`，即使占位表达式的原始值是数字、布尔值或对象。
 
+如需按类型自定义输出，可传入第 4 个参数 `OutputFormatRegistry`：
+
+```java
+OutputFormatRegistry registry = OutputFormatRegistry.getInstance().copy();
+registry.setOption(byte[].class, "mode", "base64");
+registry.setOption(File.class, "mode", "content");
+registry.setOption(File.class, "charset", "UTF-8");
+registry.setOption(Date.class, "pattern", "yyyyMMdd");
+registry.setOption(Date.class, "timeZone", "UTC");
+
+String customText = formatter.format(
+        "bytes=${payload}|file=${file}|date=${createdAt}",
+        "${?}",
+        vars,
+        registry);
+```
+
+内置输出格式支持：
+
+| 类型 | 可用配置 |
+| --- | --- |
+| `byte[]` | `mode=text/base64/hex`，`charset` |
+| `File` | `mode=path/name/content`，`charset` |
+| `Date` | `pattern`，`timeZone` |
+
+不传第 4 个参数时，`DefaultExpressionFormat` 会使用全局默认输出注册器；若只想影响单次调用，建议基于 `copy()` 派生局部配置。
+
 ## 4. 支持的表达式类型
 
 ### 4.1 算术表达式（`calculation`）
@@ -183,10 +210,12 @@ public static final class Holder {
 
 vars.put("holder", new Holder("Copilot"));
 vars.put("items", new String[] {"a", "b", "c"});
+vars.put("return.value", "success");
 
 calc.evaluate("holder.name", vars);         // "Copilot"
 calc.evaluate("items.length", vars);        // Integer(3)
 calc.calculation("holder.name.length()", vars); // "7"
+calc.evaluate("return.value", vars);        // "success"
 ```
 
 ```java

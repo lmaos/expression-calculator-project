@@ -88,8 +88,44 @@ Object result = calculator.evaluate("(wrapped)123", Collections.emptyMap());  //
 
 Use `resetToDefaults()` in tests after mutating converter registrations, just like operator registrations.
 
+## Template Output Registry
+
+Template output customization is managed by `OutputFormatRegistry`:
+
+```java
+OutputFormatRegistry registry = OutputFormatRegistry.getInstance().copy();
+registry.setOption(byte[].class, "mode", "base64");
+registry.setOption(File.class, "mode", "content");
+registry.setOption(File.class, "charset", "UTF-8");
+registry.setOption(Date.class, "pattern", "yyyyMMdd");
+registry.setOption(Date.class, "timeZone", "UTC");
+
+ExpressionFormat formatter = new DefaultExpressionFormat(new IterativeExpressionCalculator());
+String text = formatter.format(
+        "bytes=${payload}|file=${file}|date=${createdAt}",
+        "${?}",
+        variables,
+        registry);
+```
+
+Built-in defaults:
+
+- `byte[]`: `mode=text/base64/hex`, `charset`
+- `File`: `mode=path/name/content`, `charset`
+- `Date`: `pattern`, `timeZone`
+
+You can also register your own formatter for any type:
+
+```java
+OutputFormatRegistry registry = OutputFormatRegistry.getInstance().copy();
+registry.register(BigDecimal.class, (value, context) ->
+        context.stringOption("prefix", "") + ((BigDecimal) value).stripTrailingZeros().toPlainString());
+registry.setOption(BigDecimal.class, "prefix", "N=");
+```
+
 ## Operational Advice
 
-- Treat `OperatorRegistry` and `ConverterRegistry` as application-level singletons: register custom behavior during startup, not per request.
+- Treat `OperatorRegistry`, `ConverterRegistry`, and the global `OutputFormatRegistry` as application-level singletons when you want shared defaults.
+- For per-request or per-template formatting preferences, clone the output registry with `copy()` and pass it into the 4-argument `ExpressionFormat.format(...)`.
 - Method lookup is already cached by `BeanUtils`, and cast operators are cached by `CastOperator`, so the main hot path is still parsing and evaluation.
 - If you extend the DSL further, prefer reusing `ExpressionTextSupport` for any new delimiter or postfix syntax so quote-aware scanning stays consistent.

@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -21,6 +23,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 class ExpressionCalculatorEnhancementBoundaryTest {
 
     private final ConverterRegistry converterRegistry = ConverterRegistry.getInstance();
+    private final OutputFormatRegistry outputFormatRegistry = OutputFormatRegistry.getInstance();
 
     private Map<String, Object> variables;
 
@@ -33,17 +36,21 @@ class ExpressionCalculatorEnhancementBoundaryTest {
     @BeforeEach
     void setUp() {
         converterRegistry.resetToDefaults();
+        outputFormatRegistry.resetToDefaults();
 
         variables = new HashMap<>();
         variables.put("list", Arrays.asList(10, 20, 30));
         variables.put("number", 7);
         variables.put("nullable", null);
         variables.put("index", 1);
+        variables.put("payload", "abc".getBytes(StandardCharsets.UTF_8));
+        variables.put("date", new Date(0L));
     }
 
     @AfterEach
     void tearDown() {
         converterRegistry.resetToDefaults();
+        outputFormatRegistry.resetToDefaults();
     }
 
     @ParameterizedTest(name = "{0}")
@@ -105,5 +112,25 @@ class ExpressionCalculatorEnhancementBoundaryTest {
                 IllegalArgumentException.class,
                 () -> calculator.evaluate("missing + 1", variables));
         assertTrue(missingValue.getMessage().contains("变量不存在"));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    void shouldRejectInvalidOutputRegistryConfiguration(String name, ExpressionCalculator calculator) {
+        ExpressionFormat formatter = new DefaultExpressionFormat(calculator);
+
+        OutputFormatRegistry invalidBytes = outputFormatRegistry.copy();
+        invalidBytes.setOption(byte[].class, "mode", "unknown");
+        IllegalArgumentException invalidByteMode = assertThrows(
+                IllegalArgumentException.class,
+                () -> formatter.format("${payload}", "${?}", variables, invalidBytes));
+        assertTrue(invalidByteMode.getMessage().contains("byte[]"));
+
+        OutputFormatRegistry invalidDate = outputFormatRegistry.copy();
+        invalidDate.setOption(Date.class, "timeZone", "Not/AZone");
+        IllegalArgumentException invalidTimeZone = assertThrows(
+                IllegalArgumentException.class,
+                () -> formatter.format("${date}", "${?}", variables, invalidDate));
+        assertTrue(invalidTimeZone.getMessage().contains("时区"));
     }
 }

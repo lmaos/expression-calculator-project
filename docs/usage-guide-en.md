@@ -60,6 +60,33 @@ String fieldText = formatter.format("len=${items.length}", vars); // len=3
 
 `ExpressionFormat.format(...)` always returns a `String`, even when the placeholder evaluates to a number, boolean, or object.
 
+If you need type-specific output, pass an `OutputFormatRegistry` as the 4th argument:
+
+```java
+OutputFormatRegistry registry = OutputFormatRegistry.getInstance().copy();
+registry.setOption(byte[].class, "mode", "base64");
+registry.setOption(File.class, "mode", "content");
+registry.setOption(File.class, "charset", "UTF-8");
+registry.setOption(Date.class, "pattern", "yyyyMMdd");
+registry.setOption(Date.class, "timeZone", "UTC");
+
+String customText = formatter.format(
+        "bytes=${payload}|file=${file}|date=${createdAt}",
+        "${?}",
+        vars,
+        registry);
+```
+
+Built-in output options:
+
+| Type | Options |
+| --- | --- |
+| `byte[]` | `mode=text/base64/hex`, `charset` |
+| `File` | `mode=path/name/content`, `charset` |
+| `Date` | `pattern`, `timeZone` |
+
+The legacy 2/3-argument `format(...)` overloads still use the global default registry. For per-call isolation, prefer `copy()` and pass the cloned registry explicitly.
+
 ## 4. Supported Expression Types
 
 ### 4.1 Arithmetic Expressions (`calculation`)
@@ -183,10 +210,12 @@ public static final class Holder {
 
 vars.put("holder", new Holder("Copilot"));
 vars.put("items", new String[] {"a", "b", "c"});
+vars.put("return.value", "success");
 
 calc.evaluate("holder.name", vars);              // "Copilot"
 calc.evaluate("items.length", vars);             // Integer(3)
 calc.calculation("holder.name.length()", vars);  // "7"
+calc.evaluate("return.value", vars);             // "success"
 ```
 
 ```java

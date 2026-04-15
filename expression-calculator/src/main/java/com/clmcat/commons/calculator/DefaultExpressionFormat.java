@@ -21,6 +21,8 @@ import java.util.Objects;
  */
 public class DefaultExpressionFormat implements ExpressionFormat {
 
+    private static final OutputFormatRegistry DEFAULT_OUTPUT_REGISTRY = OutputFormatRegistry.getInstance();
+
     private final ExpressionCalculator calculator;
 
     /**
@@ -30,6 +32,13 @@ public class DefaultExpressionFormat implements ExpressionFormat {
      */
     public DefaultExpressionFormat(ExpressionCalculator calculator) {
         this.calculator = Objects.requireNonNull(calculator, "calculator");
+    }
+
+    /**
+     * 返回默认模板格式化所使用的全局输出注册器。
+     */
+    public static OutputFormatRegistry defaultOutputRegistry() {
+        return DEFAULT_OUTPUT_REGISTRY;
     }
 
     /**
@@ -43,6 +52,21 @@ public class DefaultExpressionFormat implements ExpressionFormat {
      */
     @Override
     public String format(String text, String rule, Map<String, Object> varMap) {
+        return format(text, rule, varMap, DEFAULT_OUTPUT_REGISTRY);
+    }
+
+    /**
+     * 按指定规则和输出注册器格式化文本。
+     *
+     * @param text 原始文本，不能为空
+     * @param rule 占位符规则，必须且只能包含一个 {@code ?}
+     * @param varMap 变量上下文，为 {@code null} 时按空 Map 处理
+     * @param outputRegistry 输出格式注册器；为 {@code null} 时使用全局默认注册器
+     * @return 格式化后的文本
+     * @throws IllegalArgumentException 当文本、规则、注册器或占位符结构非法时抛出
+     */
+    @Override
+    public String format(String text, String rule, Map<String, Object> varMap, OutputFormatRegistry outputRegistry) {
         if (text == null) {
             throw new IllegalArgumentException("text 不能为空");
         }
@@ -51,6 +75,7 @@ public class DefaultExpressionFormat implements ExpressionFormat {
         }
 
         RuleParts ruleParts = parseRule(rule);
+        OutputFormatRegistry safeOutputRegistry = outputRegistry == null ? DEFAULT_OUTPUT_REGISTRY : outputRegistry;
         Map<String, Object> safeVarMap = varMap == null ? Collections.<String, Object>emptyMap() : varMap;
         StringBuilder result = new StringBuilder(text.length());
         int position = 0;
@@ -76,7 +101,8 @@ public class DefaultExpressionFormat implements ExpressionFormat {
             }
 
             Object value = calculator.evaluate(text.substring(expressionStart, expressionEnd).trim(), safeVarMap);
-            result.append(value == null ? "" : String.valueOf(value));
+            String formatted = safeOutputRegistry.formatValue(value);
+            result.append(formatted == null ? "" : formatted);
             position = expressionEnd + ruleParts.suffix.length();
             if (ruleParts.suffix.isEmpty()) {
                 break;

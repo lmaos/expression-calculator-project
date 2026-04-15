@@ -4,13 +4,20 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+import java.io.File;
+import java.io.IOException;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
@@ -21,6 +28,10 @@ import org.junit.jupiter.params.provider.MethodSource;
 class DefaultExpressionFormatTest {
 
     private final ConverterRegistry converterRegistry = ConverterRegistry.getInstance();
+    private final OutputFormatRegistry outputFormatRegistry = OutputFormatRegistry.getInstance();
+
+    @TempDir
+    Path tempDir;
 
     private Map<String, Object> variables;
 
@@ -49,8 +60,9 @@ class DefaultExpressionFormatTest {
     }
 
     @BeforeEach
-    void setUp() {
+    void setUp() throws IOException {
         converterRegistry.resetToDefaults();
+        outputFormatRegistry.resetToDefaults();
 
         variables = new HashMap<>();
         Map<String, Object> map = new HashMap<>();
@@ -65,11 +77,21 @@ class DefaultExpressionFormatTest {
         variables.put("flagB", false);
         variables.put("str", "123");
         variables.put("holder", new PublicHolder("alpha", new PublicChild(7)));
+        variables.put("payload", "hello".getBytes(StandardCharsets.UTF_8));
+        variables.put("date", new Date(0L));
+        variables.put("amount", new BigDecimal("12.50"));
+        variables.put("return.value", "success");
+        variables.put("deep.path.value", "done");
+
+        Path filePath = tempDir.resolve("format-output.txt");
+        Files.write(filePath, "file-content".getBytes(StandardCharsets.UTF_8));
+        variables.put("file", filePath.toFile());
     }
 
     @AfterEach
     void tearDown() {
         converterRegistry.resetToDefaults();
+        outputFormatRegistry.resetToDefaults();
     }
 
     @ParameterizedTest(name = "{0}")
@@ -161,5 +183,50 @@ class DefaultExpressionFormatTest {
         assertEquals(3, calculator.evaluate("array.length", variables));
         assertEquals("alpha", calculator.evaluate("holder.name", variables));
         assertEquals(7, calculator.evaluate("holder.child.count", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    void shouldResolveMissingVariableDotChainsAsDirectKeys(String name, ExpressionCalculator calculator) {
+        ExpressionFormat formatter = new DefaultExpressionFormat(calculator);
+
+        assertEquals("success", calculator.evaluate("return.value", variables));
+        assertEquals("done", calculator.evaluate("deep.path.value", variables));
+        assertEquals(7, calculator.evaluate("return.value.length()", variables));
+
+        assertEquals("success", formatter.format("${return.value}", variables));
+        assertEquals("7", formatter.format("${return.value.length()}", variables));
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    void shouldSupportTypeSpecificOutputRegistryOverrides(String name, ExpressionCalculator calculator) {
+        ExpressionFormat formatter = new DefaultExpressionFormat(calculator);
+        OutputFormatRegistry localRegistry = outputFormatRegistry.copy();
+        localRegistry.setOption(byte[].class, "mode", "base64");
+        localRegistry.setOption(File.class, "mode", "content");
+        localRegistry.setOption(File.class, "charset", "UTF-8");
+        localRegistry.setOption(Date.class, "pattern", "yyyyMMdd");
+        localRegistry.setOption(Date.class, "timeZone", "UTC");
+        localRegistry.register(BigDecimal.class, (value, context) ->
+                context.stringOption("prefix", "") + ((BigDecimal) value).stripTrailingZeros().toPlainString());
+        localRegistry.setOption(BigDecimal.class, "prefix", "N=");
+
+        String formatted = formatter.format(
+                "bytes=${payload}|file=${file}|date=${date}|amount=${amount}",
+                "${?}",
+                variables,
+                localRegistry);
+        assertEquals("bytes=aGVsbG8=|file=file-content|date=19700101|amount=N=12.5", formatted);
+    }
+
+    @ParameterizedTest(name = "{0}")
+    @MethodSource("calculators")
+    void shouldUseGlobalDefaultOutputRegistryForLegacyOverload(String name, ExpressionCalculator calculator) {
+        ExpressionFormat formatter = new DefaultExpressionFormat(calculator);
+        outputFormatRegistry.setOption(Date.class, "pattern", "yyyy/MM/dd");
+        outputFormatRegistry.setOption(Date.class, "timeZone", "UTC");
+
+        assertEquals("1970/01/01", formatter.format("${date}", variables));
     }
 }

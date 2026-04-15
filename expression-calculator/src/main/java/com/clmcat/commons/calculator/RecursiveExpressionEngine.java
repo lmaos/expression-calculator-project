@@ -188,7 +188,7 @@ final class RecursiveExpressionEngine {
                         }
                         node = new MethodCallNode(node, memberName, arguments);
                     } else {
-                        node = new FieldAccessNode(node, memberName);
+                        node = new FieldAccessNode(node, memberName, variables);
                     }
                     continue;
                 }
@@ -276,6 +276,13 @@ final class RecursiveExpressionEngine {
     }
 
     // ----- AST 节点定义 -----
+    private static RuntimeValue resolveVariableValue(String name, Map<String, Object> variables) {
+        if (variables == null || !variables.containsKey(name)) {
+            return RuntimeValue.missingVariable(name);
+        }
+        return RuntimeValue.variable(variables.get(name));
+    }
+
     private static final class LiteralNode implements Node {
         private final Object value;
 
@@ -300,10 +307,7 @@ final class RecursiveExpressionEngine {
 
         @Override
         public RuntimeValue evaluate() {
-            if (variables == null || !variables.containsKey(name)) {
-                return RuntimeValue.missingVariable(name);
-            }
-            return RuntimeValue.variable(variables.get(name));
+            return resolveVariableValue(name, variables);
         }
     }
 
@@ -391,15 +395,21 @@ final class RecursiveExpressionEngine {
     private static final class FieldAccessNode implements Node {
         private final Node receiver;
         private final String fieldName;
+        private final Map<String, Object> variables;
 
-        private FieldAccessNode(Node receiver, String fieldName) {
+        private FieldAccessNode(Node receiver, String fieldName, Map<String, Object> variables) {
             this.receiver = receiver;
             this.fieldName = fieldName;
+            this.variables = variables;
         }
 
         @Override
         public RuntimeValue evaluate() {
-            return ExpressionRuntimeSupport.accessField(receiver.evaluate(), fieldName);
+            RuntimeValue receiverValue = receiver.evaluate();
+            if (receiverValue.isMissingVariable()) {
+                return resolveVariableValue(receiverValue.missingVariableName() + "." + fieldName, variables);
+            }
+            return ExpressionRuntimeSupport.accessField(receiverValue, fieldName);
         }
     }
 }

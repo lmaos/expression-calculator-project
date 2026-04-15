@@ -241,7 +241,37 @@ calculator.calculation("num1.add(55)", variables);
 // 非法，55 是直接字面量，类型按 int 参与匹配
 ```
 
-## 9. 防御性能力
+## 9. 模板输出注册器
+
+`ExpressionFormat` 新增了带输出注册器的重载：
+
+```java
+OutputFormatRegistry registry = OutputFormatRegistry.getInstance().copy();
+registry.setOption(byte[].class, "mode", "base64");
+registry.setOption(File.class, "mode", "content");
+registry.setOption(File.class, "charset", "UTF-8");
+registry.setOption(Date.class, "pattern", "yyyyMMdd");
+registry.setOption(Date.class, "timeZone", "UTC");
+
+ExpressionFormat formatter = new DefaultExpressionFormat(calculator);
+String text = formatter.format(
+        "bytes=${payload}|file=${file}|date=${createdAt}",
+        "${?}",
+        variables,
+        registry);
+```
+
+内置类型配置：
+
+| 类型 | 配置 |
+| --- | --- |
+| `byte[]` | `mode=text/base64/hex`，`charset` |
+| `File` | `mode=path/name/content`，`charset` |
+| `Date` | `pattern`，`timeZone` |
+
+旧的 `format(text, varMap)` / `format(text, rule, varMap)` 仍然可用，它们会读取全局默认输出注册器。若只想影响单次调用，请先 `copy()` 再传入。
+
+## 10. 防御性能力
 
 当前实现已经覆盖以下防御场景：
 
@@ -259,7 +289,7 @@ calculator.calculation("num1.add(55)", variables);
 
 其中 `IterativeExpressionCalculator` 对深层输入的防御能力更强。
 
-## 10. 常见异常
+## 11. 常见异常
 
 | 场景 | 示例异常 |
 | --- | --- |
@@ -272,10 +302,11 @@ calculator.calculation("num1.add(55)", variables);
 | 非整数位运算 | `位运算只支持整数: x` |
 | 字段不存在 | `字段访问失败，不存在公开字段: Xxx.field` |
 | 字段对象为空 | `字段访问失败: 对象为空, 字段: xxx` |
+| 输出配置错误 | `不支持的 byte[] 输出模式` / `不支持的时区` |
 | 方法对象为空 | `方法调用失败: 对象为空, 方法: xxx` |
 | 方法类型不匹配 | `方法调用失败，参数类型不匹配: Xxx.method` |
 
-## 11. 选择建议
+## 12. 选择建议
 
 - 如果重点是**阅读、教学、理解语法**：使用 `RecursiveExpressionCalculator`
 - 如果重点是**稳定性、深层输入、防恶意嵌套**：使用 `IterativeExpressionCalculator`
