@@ -108,7 +108,7 @@
                         <phase>verify</phase>
                         <goals><goal>sign</goal></goals>
                         <configuration>
-                            <keyname>87BE99D192B70075</keyname> <!-- 你的密钥 ID -->
+                            <keyname>87BE99D192B70075</keyname>
                         </configuration>
                     </execution>
                 </executions>
