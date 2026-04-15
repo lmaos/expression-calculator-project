@@ -8,6 +8,8 @@
     <artifactId>expression-calculator</artifactId>
     <version>1.0.0</version>
     <name>expression-calculator</name>
+    <url>https://github.com/lmaos/expression-calculator-project</url>
+    <description>Lightweight expression calculation engine for Java, supports arithmetic, logic, variables, method calls, object access and template formatting.</description>
 
     <licenses>
         <license>

@@ -2,6 +2,19 @@
 
 `expression-calculator` 是一个面向 Java 的表达式计算库，支持算术、比较、逻辑、位运算、变量、字面量，以及公开字段/方法访问。
 
+## 中央仓库依赖
+
+已发布到 Maven Central，可直接引用：
+
+```xml
+<dependency>
+    <groupId>com.clmcat.commons</groupId>
+    <artifactId>expression-calculator</artifactId>
+    <version>1.0.0</version>
+</dependency>
+
+```
+
 ## 能力
 
 - 两种实现：`RecursiveExpressionCalculator`、`IterativeExpressionCalculator`
