@@ -157,9 +157,7 @@ mvn clean install
 
 - `**` 是幂运算符，`^` 是位异或运算符
 - `!` 可用于 `compareCalculation` 中对单独变量、集合、文件或返回布尔值的方法结果做取反
-- 旧的 `xor` 关键字不再作为默认符号
-- `<<<` 作为 DSL 中的对称别名保留，语义与 `<<` 一致
-- 所有 README 示例都保持 Java 8 兼容，不使用 `Map.of` / `List.of`
+- 所有 README 示例都保持 Java 8 兼容，
 - 自定义运算符注册说明见 [README_EXTENSIBILITY.md](expression-calculator/README_EXTENSIBILITY.md)
 - 其他参考：
   - [usage-guide-zh.md](docs/usage-guide-zh.md)
