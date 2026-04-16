@@ -16,18 +16,18 @@ import java.util.function.Function;
  */
 public final class OperatorRegistry {
 
-    private static final int PRECEDENCE_PRIMARY = 11;
+    private static final int PRECEDENCE_PRIMARY = 11; // 最高优先级（基础运算/括号级，预留）
     // 优先级从低到高依次为：等号、位或、位异或、位与、关系、移位、加减、乘除、幂、一元。
-    private static final int PRECEDENCE_EQUALITY = 1;
-    private static final int PRECEDENCE_BITWISE_OR = 2;
-    private static final int PRECEDENCE_BITWISE_XOR = 3;
-    private static final int PRECEDENCE_BITWISE_AND = 4;
-    private static final int PRECEDENCE_RELATIONAL = 5;
-    private static final int PRECEDENCE_SHIFT = 6;
-    private static final int PRECEDENCE_ADDITIVE = 7;
-    private static final int PRECEDENCE_MULTIPLICATIVE = 8;
-    private static final int PRECEDENCE_POWER = 9;
-    private static final int PRECEDENCE_UNARY = 10;
+    private static final int PRECEDENCE_EQUALITY = 1; // 优先级：相等/不等 == !=
+    private static final int PRECEDENCE_BITWISE_OR = 2; // 优先级：按位或 |
+    private static final int PRECEDENCE_BITWISE_XOR = 3; // 优先级：按位异或 ^
+    private static final int PRECEDENCE_BITWISE_AND = 4; // 优先级：按位与 &
+    private static final int PRECEDENCE_RELATIONAL = 5; // 优先级：关系运算 > < >= <=
+    private static final int PRECEDENCE_SHIFT = 6; // 优先级：移位运算 << >> >>>
+    private static final int PRECEDENCE_ADDITIVE = 7; // 优先级：加减 + -
+    private static final int PRECEDENCE_MULTIPLICATIVE = 8; // 先级：乘除 * / %
+    private static final int PRECEDENCE_POWER = 9; // 优先级：幂运算 **
+    private static final int PRECEDENCE_UNARY = 10; // 优先级：一元运算 + - ! ~
 
     // 长符号优先，避免短前缀先匹配到错误运算符。
     private static final Comparator<Operator> OPERATOR_ORDER = Comparator
