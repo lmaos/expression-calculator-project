@@ -41,6 +41,49 @@
 - 支持一元/二元同符号（如 `-`），解析器自动区分。
 - 运算符匹配优先长符号，避免 `>>`/`>>>`/`>=` 冲突。
 
+## 代码示范（单元测试覆盖）
+下面示例都在 `OperatorExtensionTest` 中有对应断言，文档仅记录这些已被单元测试验证的用法：
+
+- 使用 ExpressionCalculator 求值（示例来自测试）：
+
+```java
+Map<String, Object> vars = new HashMap<>();
+vars.put("a", 1);
+vars.put("b", 2);
+vars.put("c", 3);
+ExpressionCalculator calculator = new IterativeExpressionCalculator();
+
+String mod = calculator.calculation("10 % 3", vars); // "1"
+String pow = calculator.calculation("2 ** 3", vars); // "8"
+boolean powAssoc = calculator.compareCalculation("2 ** 3 ** 2 == 512", vars); // true
+```
+
+- 注册防御示例（测试验证会抛出 IllegalArgumentException）：
+
+```java
+OperatorRegistry registry = OperatorRegistry.getInstance();
+
+// 拒绝注册短路逻辑运算符 &&
+try {
+    registry.registerBinary("&&", 1, Associativity.LEFT, (left, right) -> RuntimeValue.computed(true));
+} catch (IllegalArgumentException e) {
+    // e.getMessage() -> "逻辑短路运算符不能通过普通运算符注册: &&"
+}
+
+// 拒绝空白运算符符号
+try {
+    registry.registerBinary(" ", 1, Associativity.LEFT, (left, right) -> RuntimeValue.computed(true));
+} catch (IllegalArgumentException e) {
+    // e.getMessage() -> "运算符符号不能为空"
+}
+```
+
+- 恢复默认运算符（测试在 setUp/tearDown 中使用）：
+
+```java
+OperatorRegistry.getInstance().resetToDefaults();
+```
+
 ## 单元测试示例
 详见 `OperatorExtensionTest`：
 - 验证默认运算符（包括 `%` 和 `**`）的行为与优先级
