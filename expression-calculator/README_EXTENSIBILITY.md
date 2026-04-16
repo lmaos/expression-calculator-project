@@ -33,12 +33,12 @@ Default registrations are:
 
 Use the singleton registry during application startup:
 
-```java
+```X
 OperatorRegistry registry = OperatorRegistry.getInstance();
 
 registry.registerBinary("pow", 9, Associativity.RIGHT, (left, right) -> {
-    BigDecimal base = left.toBigDecimal();
-    BigDecimal exponent = right.toBigDecimal();
+    BigDecimal base = toBigDecimal(left);
+    BigDecimal exponent = toBigDecimal(right)
     BigDecimal normalized = exponent.stripTrailingZeros();
     if (normalized.scale() <= 0 && normalized.compareTo(BigDecimal.ZERO) >= 0) {
         return RuntimeValue.computed(base.pow(normalized.intValueExact()));
@@ -49,6 +49,13 @@ registry.registerBinary("pow", 9, Associativity.RIGHT, (left, right) -> {
     }
     return RuntimeValue.computed(BigDecimal.valueOf(result));
 });
+
+
+BigDecimal toBigDecimal(RuntimeValue value) {
+    Object unwrapped = value.raw();
+    return ....
+}
+
 ```
 
 After registration:
